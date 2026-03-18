@@ -9,7 +9,7 @@
   },
   {
     "id": "9c7d1f05-551d-4fbc-9537-16de7ef72e7f",
-    "name": "Laura MartÃ­nez",
+    "name": "Laura Martínez",
     "email": "laura@encom.es",
     "passwordHash": "b7663035afcbef0bc3e9fd78c85cca2e52cc6ef455d4f31b1f63be5e56fa90ae",
     "role": "editor",
@@ -25,7 +25,7 @@
   },
   {
     "id": "7520df05-540f-4982-b657-8c1f72102285",
-    "name": "Ana BeltrÃ¡n",
+    "name": "Ana Beltrán",
     "email": "ana@encom.es",
     "passwordHash": "b7663035afcbef0bc3e9fd78c85cca2e52cc6ef455d4f31b1f63be5e56fa90ae",
     "role": "editor",

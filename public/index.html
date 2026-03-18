@@ -481,21 +481,77 @@ function openNotaForm(nota = null) {
     <div class="form-group"><label>Proyecto / Evento</label>
       <select id="nf-proyecto"><option value="OWN Valencia" ${nota?.proyecto==='OWN Valencia'?'selected':''}>OWN Valencia</option><option value="Valencia Game City" ${nota?.proyecto==='Valencia Game City'?'selected':''}>Valencia Game City</option><option value="IDASFEST" ${nota?.proyecto==='IDASFEST'?'selected':''}>IDASFEST</option><option value="Encom" ${nota?.proyecto==='Encom'?'selected':''}>Encom</option><option value="Otro" ${nota?.proyecto==='Otro'?'selected':''}>Otro</option></select>
     </div>
-    <div class="form-group"><label>Titular</label><input id="nf-titular" value="${esc(nota?.titular)}" placeholder="Titular principal de la nota"></div>
-    <div class="form-group"><label>Subtítulo</label><input id="nf-subtitulo" value="${esc(nota?.subtitulo)}" placeholder="Ampliación del titular"></div>
-    <div class="form-group"><label>Cuerpo de la nota</label><textarea id="nf-cuerpo" rows="10" placeholder="Texto completo de la nota de prensa...">${esc(nota?.cuerpo)}</textarea></div>
     <div class="grid grid-2">
-      <div class="form-group"><label>Datos clave / Cifras</label><textarea id="nf-datos" rows="3" placeholder="Datos numéricos relevantes...">${esc(nota?.datosClaveRaw)}</textarea></div>
-      <div class="form-group"><label>Citas textuales</label><textarea id="nf-citas" rows="3" placeholder='"Declaración del portavoz"...'>${esc(nota?.citas)}</textarea></div>
+      <div class="form-group"><label>Datos clave / Cifras</label><textarea id="nf-datos" rows="3" placeholder="150 artistas, 3 días, 35.000 asistentes, 89€ abono...">${esc(nota?.datosClaveRaw)}</textarea></div>
+      <div class="form-group"><label>Citas textuales</label><textarea id="nf-citas" rows="3" placeholder='"Queremos que OWN sea una experiencia cultural única" — Javi, CEO'>${esc(nota?.citas)}</textarea></div>
     </div>
     <div class="form-group"><label>Contacto de prensa</label><input id="nf-contacto" value="${esc(nota?.contactoPrensa)}" placeholder="Email/teléfono para periodistas"></div>
     <div class="form-group"><label>Material adjunto (links)</label><input id="nf-material" value="${esc(nota?.materialesAdjuntos)}" placeholder="URLs de imágenes/vídeos/press kit"></div>
     <div class="form-group"><label>Nota de ejemplo / referencia (opcional)</label><textarea id="nf-ejemplo" rows="3" placeholder="Pega aquí una nota similar como referencia...">${esc(nota?.notaEjemplo)}</textarea></div>
+    <div style="margin:1.5rem 0;padding:1rem;background:linear-gradient(135deg,#f0f4ff,#e8f0fe);border-radius:12px;border:1px solid #c5d5f7">
+      <div class="flex flex-between flex-center">
+        <div><strong style="color:#1a56db">Generar con IA</strong><br><small style="color:#666">Rellena los datos clave y la IA creará el titular, subtítulo y cuerpo</small></div>
+        <button class="btn btn-primary" onclick="generarConIA()" id="btn-ia" style="background:#1a56db;white-space:nowrap">Generar nota</button>
+      </div>
+      <div id="ia-status" style="display:none;margin-top:0.75rem"></div>
+    </div>
+    <hr style="border:none;border-top:1px solid #e5e7eb;margin:1rem 0">
+    <div class="form-group"><label>Titular</label><input id="nf-titular" value="${esc(nota?.titular)}" placeholder="Se generará con IA o escríbelo manualmente"></div>
+    <div class="form-group"><label>Subtítulo</label><input id="nf-subtitulo" value="${esc(nota?.subtitulo)}" placeholder="Se generará con IA o escríbelo manualmente"></div>
+    <div class="form-group"><label>Cuerpo de la nota</label><textarea id="nf-cuerpo" rows="10" placeholder="Se generará con IA o escríbelo manualmente...">${esc(nota?.cuerpo)}</textarea></div>
     <div class="flex gap-1" style="margin-top:1.5rem">
       <button class="btn btn-primary" onclick="saveNota('${nota?.id || ''}')">${isEdit ? 'Guardar cambios' : 'Crear nota'}</button>
       <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
     </div>
   `);
+}
+
+async function generarConIA() {
+  const proyecto = document.getElementById('nf-proyecto').value;
+  const datosClaveRaw = document.getElementById('nf-datos').value;
+  const citas = document.getElementById('nf-citas').value;
+  const contactoPrensa = document.getElementById('nf-contacto').value;
+  const materialesAdjuntos = document.getElementById('nf-material').value;
+  const notaEjemplo = document.getElementById('nf-ejemplo').value;
+
+  if (!datosClaveRaw.trim()) {
+    alert('Rellena al menos los "Datos clave / Cifras" para que la IA pueda generar la nota.');
+    return;
+  }
+
+  const btn = document.getElementById('btn-ia');
+  const status = document.getElementById('ia-status');
+  btn.disabled = true;
+  btn.textContent = 'Generando...';
+  status.style.display = 'block';
+  status.innerHTML = '<div style="color:#1a56db">Generando nota de prensa con IA... esto puede tardar unos segundos.</div>';
+
+  try {
+    const result = await api('/api/notas/generar-ia', {
+      method: 'POST',
+      body: JSON.stringify({ proyecto, datosClaveRaw, citas, contactoPrensa, materialesAdjuntos, notaEjemplo })
+    });
+
+    if (result.error) {
+      status.innerHTML = '<div style="color:#dc2626">Error: ' + esc(result.error) + '</div>';
+      return;
+    }
+
+    // Fill in the fields with AI-generated content
+    if (result.titular) document.getElementById('nf-titular').value = result.titular;
+    if (result.subtitulo) document.getElementById('nf-subtitulo').value = result.subtitulo;
+    if (result.cuerpo) document.getElementById('nf-cuerpo').value = result.cuerpo;
+
+    status.innerHTML = '<div style="color:#059669">Nota generada. Revisa y edita el resultado antes de guardar.</div>';
+
+    // Scroll to the generated fields
+    document.getElementById('nf-titular').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  } catch (e) {
+    status.innerHTML = '<div style="color:#dc2626">Error de conexión: ' + esc(e.message) + '</div>';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Generar nota';
+  }
 }
 
 async function saveNota(id) {

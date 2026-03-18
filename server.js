@@ -14,6 +14,7 @@ const { URL } = require('url');
 const PORT = process.env.PORT || 3000;
 const DATA_DIR = path.join(__dirname, 'data');
 const PUBLIC_DIR = path.join(__dirname, 'public');
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
 
 // Ensure data dir exists
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -622,6 +623,114 @@ route('DELETE', '/api/plantillas/:id', async (req, res, params) => {
   plantillas = plantillas.filter(p => p.id !== params.id);
   writeJSON('plantillas.json', plantillas);
   json(res, { ok: true });
+});
+
+// ── GENERACIÓN IA ──
+route('POST', '/api/notas/generar-ia', async (req, res) => {
+  const user = requireAuth(req, res);
+  if (!user) return;
+  if (!ANTHROPIC_API_KEY) return error(res, 'API de IA no configurada. Añade ANTHROPIC_API_KEY en las variables de entorno.', 500);
+
+  const body = await parseBody(req);
+  const { proyecto, datosClaveRaw, citas, contactoPrensa, materialesAdjuntos, notaEjemplo } = body;
+
+  if (!datosClaveRaw && !proyecto) return error(res, 'Necesito al menos el proyecto y algunos datos clave para generar la nota');
+
+  const systemPrompt = `Eres el jefe de comunicación de Encom, una empresa líder en gestión de eventos en España. Tus eventos principales son OWN Valencia (festival de música), Valencia Game City (evento gaming) e IDASFEST (festival urbano).
+
+Tu trabajo es redactar notas de prensa profesionales, perfectas para enviar a medios de comunicación españoles.
+
+Reglas de estilo:
+- Tono profesional pero cercano, típico de comunicación corporativa española
+- Titular: impactante, con dato concreto, máximo 120 caracteres
+- Subtítulo: amplía el titular con contexto, máximo 200 caracteres
+- Cuerpo: 4-5 párrafos bien estructurados
+  - Párrafo 1: Qué, cuándo, dónde (lo esencial)
+  - Párrafo 2: Detalles del programa/contenido
+  - Párrafo 3: Novedades de esta edición
+  - Párrafo 4: Cita del CEO o responsable (usa las citas proporcionadas, o inventa una verosímil de Javi, CEO de Encom)
+  - Párrafo 5: Datos prácticos (entradas, precios, acceso)
+- Incluye los datos numéricos/cifras proporcionados de forma natural en el texto
+- NO uses formato markdown, solo texto plano con saltos de línea
+- Escribe SIEMPRE en castellano`;
+
+  const userPrompt = `Genera una nota de prensa profesional con estos datos:
+
+PROYECTO/EVENTO: ${proyecto || 'Encom'}
+DATOS CLAVE Y CIFRAS: ${datosClaveRaw || 'No proporcionados'}
+CITAS TEXTUALES: ${citas || 'No proporcionadas, genera una verosímil del CEO'}
+CONTACTO DE PRENSA: ${contactoPrensa || 'Departamento de Comunicación Encom — prensa@encom.es — 960 000 000'}
+MATERIALES: ${materialesAdjuntos || 'No proporcionados'}
+${notaEjemplo ? `NOTA DE REFERENCIA (usa como guía de estilo): ${notaEjemplo}` : ''}
+
+Responde EXCLUSIVAMENTE con un JSON válido (sin markdown, sin backticks) con esta estructura:
+{"titular": "...", "subtitulo": "...", "cuerpo": "..."}
+
+El cuerpo debe usar \\n\\n para separar párrafos. No incluyas nada más fuera del JSON.`;
+
+  try {
+    const https = require('https');
+    const postData = JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 2000,
+      messages: [
+        { role: 'user', content: userPrompt }
+      ],
+      system: systemPrompt,
+    });
+
+    const options = {
+      hostname: 'api.anthropic.com',
+      path: '/v1/messages',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+        'Content-Length': Buffer.byteLength(postData),
+      }
+    };
+
+    const apiReq = https.request(options, (apiRes) => {
+      let data = '';
+      apiRes.on('data', d => data += d);
+      apiRes.on('end', () => {
+        try {
+          const result = JSON.parse(data);
+          if (result.error) {
+            return error(res, `Error de IA: ${result.error.message}`, 500);
+          }
+          // Extract text from Claude response
+          const text = result.content?.[0]?.text || '';
+          // Parse the JSON from the response
+          try {
+            const nota = JSON.parse(text);
+            json(res, {
+              titular: nota.titular || '',
+              subtitulo: nota.subtitulo || '',
+              cuerpo: nota.cuerpo || '',
+            });
+          } catch {
+            // If JSON parsing fails, try to extract from the text
+            json(res, {
+              titular: '',
+              subtitulo: '',
+              cuerpo: text,
+              _raw: true,
+              _note: 'No se pudo estructurar la respuesta. El texto completo está en cuerpo.'
+            });
+          }
+        } catch (e) {
+          error(res, 'Error procesando respuesta de IA: ' + e.message, 500);
+        }
+      });
+    });
+    apiReq.on('error', e => error(res, 'Error conectando con IA: ' + e.message, 500));
+    apiReq.write(postData);
+    apiReq.end();
+  } catch (e) {
+    error(res, 'Error interno IA: ' + e.message, 500);
+  }
 });
 
 // ── NOTIFICATIONS ──

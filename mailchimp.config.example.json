@@ -1,7 +1,7 @@
 {
   "apiKey": "TU_API_KEY_DE_MAILCHIMP",
   "serverPrefix": "us1",
-  "defaultFromName": "Encom ComunicaciÃ³n",
+  "defaultFromName": "Encom Comunicación",
   "defaultFromEmail": "prensa@encom.es",
   "defaultReplyTo": "javier@encom.es"
 }

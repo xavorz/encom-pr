@@ -1,14 +1,14 @@
 [
   {
     "id": "476c39af-7a49-4f28-b652-7468c0439cd5",
-    "nombre": "MarÃ­a GarcÃ­a LÃ³pez",
+    "nombre": "María García López",
     "email": "maria.garcia@levante-emv.com",
     "medio": "Levante-EMV",
     "cargo": "Redactora de Cultura",
     "tematicas": [
       "cultura",
       "eventos",
-      "mÃºsica"
+      "música"
     ],
     "region": "Comunitat Valenciana",
     "telefono": "612345678",
@@ -26,10 +26,10 @@
   },
   {
     "id": "19507980-5521-4d23-8f1e-8316c5ce6714",
-    "nombre": "Pablo FernÃ¡ndez",
+    "nombre": "Pablo Fernández",
     "email": "pfernandez@lasprovincias.es",
     "medio": "Las Provincias",
-    "cargo": "Jefe de secciÃ³n Ocio",
+    "cargo": "Jefe de sección Ocio",
     "tematicas": [
       "eventos",
       "lifestyle",
@@ -51,13 +51,13 @@
   },
   {
     "id": "cf254b23-d23d-4ba4-beae-a7d74bfbd29a",
-    "nombre": "LucÃ­a Navarro",
+    "nombre": "Lucía Navarro",
     "email": "lucia.navarro@elpais.com",
-    "medio": "El PaÃ­s",
+    "medio": "El País",
     "cargo": "Periodista de Cultura",
     "tematicas": [
       "cultura",
-      "mÃºsica",
+      "música",
       "eventos"
     ],
     "region": "Nacional",
@@ -71,13 +71,13 @@
   },
   {
     "id": "9cadae3c-fd45-4e91-9173-ee09f69fbc92",
-    "nombre": "AndrÃ©s Molina",
+    "nombre": "Andrés Molina",
     "email": "amolina@elmundo.es",
     "medio": "El Mundo",
     "cargo": "Redactor",
     "tematicas": [
       "eventos",
-      "tecnologÃ­a",
+      "tecnología",
       "cultura"
     ],
     "region": "Nacional",
@@ -96,13 +96,13 @@
   },
   {
     "id": "89ae6aaa-a75b-4e1b-ae2c-b423e4a144bb",
-    "nombre": "Elena Ruiz SÃ¡nchez",
+    "nombre": "Elena Ruiz Sánchez",
     "email": "elena@vandal.net",
     "medio": "Vandal",
     "cargo": "Editora de Eventos Gaming",
     "tematicas": [
       "gaming",
-      "tecnologÃ­a",
+      "tecnología",
       "eventos"
     ],
     "region": "Nacional",
@@ -127,7 +127,7 @@
     "cargo": "Redactor senior",
     "tematicas": [
       "gaming",
-      "tecnologÃ­a"
+      "tecnología"
     ],
     "region": "Nacional",
     "telefono": "667890123",
@@ -140,14 +140,14 @@
   },
   {
     "id": "0ea62e6a-9f46-48b7-a1ad-b4fb4a6543c5",
-    "nombre": "Sara LÃ³pez",
+    "nombre": "Sara López",
     "email": "sara.lopez@vidaextra.com",
     "medio": "Vida Extra",
     "cargo": "Periodista",
     "tematicas": [
       "gaming",
       "eventos",
-      "tecnologÃ­a"
+      "tecnología"
     ],
     "region": "Nacional",
     "telefono": "678901234",
@@ -165,7 +165,7 @@
   },
   {
     "id": "1dbb5749-f7d1-48cb-8a8d-5b242f0d61a3",
-    "nombre": "Miguel Ãngel Romero",
+    "nombre": "Miguel Ángel Romero",
     "email": "maromero@valenciaplaza.com",
     "medio": "Valencia Plaza",
     "cargo": "Director de contenidos",
@@ -197,11 +197,11 @@
     "tematicas": [
       "eventos",
       "cultura",
-      "mÃºsica"
+      "música"
     ],
     "region": "Nacional",
     "telefono": "690123456",
-    "notas": "Agencia â alto alcance",
+    "notas": "Agencia — alto alcance",
     "historialEnvios": [
       {
         "notaId": "demo",
@@ -225,7 +225,7 @@
     ],
     "region": "Nacional",
     "telefono": "601234567",
-    "notas": "Contactar con antelaciÃ³n",
+    "notas": "Contactar con antelación",
     "historialEnvios": [],
     "publicaciones": 4,
     "tasaPublicacion": 66,
@@ -234,18 +234,18 @@
   },
   {
     "id": "df7a0e74-b7e5-403b-a522-d7cf7c4def96",
-    "nombre": "Patricia GÃ³mez",
+    "nombre": "Patricia Gómez",
     "email": "patricia@mondosonoro.com",
     "medio": "Mondo Sonoro",
     "cargo": "Editora Valencia",
     "tematicas": [
-      "mwsica",
+      "música",
       "cultura",
       "eventos"
     ],
     "region": "Comunitat Valenciana",
     "telefono": "612345098",
-    "notas": "Especialista en musica independiente",
+    "notas": "Especialista en música independiente",
     "historialEnvios": [
       {
         "notaId": "demo",
@@ -259,13 +259,13 @@
   },
   {
     "id": "f0b10ed3-b802-4506-8382-02febd185cb8",
-    "nombre": "Roberto MartÃ­n",
+    "nombre": "Roberto Martín",
     "email": "roberto@igamesplay.com",
     "medio": "iGamesPlay",
     "cargo": "Director",
     "tematicas": [
       "gaming",
-      "tecnologÃ­a",
+      "tecnología",
       "eventos"
     ],
     "region": "Nacional",
@@ -282,7 +282,7 @@
     "nombre": "Isabel Herrera",
     "email": "iherrera@abc.es",
     "medio": "ABC",
-    "cargo": "SecciÃ³n Cultura",
+    "cargo": "Sección Cultura",
     "tematicas": [
       "cultura",
       "eventos",
@@ -304,9 +304,9 @@
   },
   {
     "id": "98375d4a-f310-4f87-ae85-94b76d32beb8",
-    "nombre": "TomÃ¡s Pascual",
+    "nombre": "Tomás Pascual",
     "email": "tomas@revistagq.es",
-    "medio": "GQ EspaÃ±a",
+    "medio": "GQ España",
     "cargo": "Redactor Lifestyle",
     "tematicas": [
       "lifestyle",
@@ -315,7 +315,7 @@
     ],
     "region": "Nacional",
     "telefono": "645670987",
-    "notas": "InterÃ©s en eventos premium",
+    "notas": "Interés en eventos premium",
     "historialEnvios": [],
     "publicaciones": 1,
     "tasaPublicacion": 25,
@@ -324,13 +324,13 @@
   },
   {
     "id": "d3ae2fce-b195-4430-8de7-33682f355766",
-    "nombre": "Raquel DÃ­az",
+    "nombre": "Raquel Díaz",
     "email": "raquel@culturplaza.com",
     "medio": "Culturplaza",
     "cargo": "Periodista cultural",
     "tematicas": [
       "cultura",
-      "msica",
+      "música",
       "eventos"
     ],
     "region": "Valencia",
@@ -355,7 +355,7 @@
     "cargo": "Editor eventos",
     "tematicas": [
       "gaming",
-      "tecnologÃ­a",
+      "tecnología",
       "eventos"
     ],
     "region": "Nacional",
@@ -382,11 +382,11 @@
       "eventos",
       "lifestyle",
       "cultura",
-      "m°Úsica"
+      "música"
     ],
     "region": "Valencia",
     "telefono": "678900987",
-    "notas": "GuÃ­a de ocho â alto impacto local",
+    "notas": "Guía de ocio — alto impacto local",
     "historialEnvios": [
       {
         "notaId": "demo",
@@ -400,17 +400,17 @@
   },
   {
     "id": "12763fe5-d937-45c9-ab72-573dfa06555f",
-    "nombre": "Francisco IbÃÃ±ez",
-    "email": "fibaÃÃ±ez@expansion.com",
-    "medio": "ExpansiÃ³n",
+    "nombre": "Francisco Ibáñez",
+    "email": "fibañez@expansion.com",
+    "medio": "Expansión",
     "cargo": "Sector entretenimiento",
     "tematicas": [
       "eventos",
-      "tecnologÃ­a"
+      "tecnología"
     ],
     "region": "Nacional",
-    "telefono": "68901087",
-    "notas": "Enfoque econÃ³mico/negocio",
+    "telefono": "689010987",
+    "notas": "Enfoque económico/negocio",
     "historialEnvios": [],
     "publicaciones": 0,
     "tasaPublicacion": 0,
@@ -421,11 +421,11 @@
     "id": "af67e4f3-2fc9-46cd-9ebb-fcd6dfc66306",
     "nombre": "Laura Chen",
     "email": "laura.chen@gamesindustry.biz",
-    "medio": "GamesIndustry.bjz",
+    "medio": "GamesIndustry.biz",
     "cargo": "EU Correspondent",
     "tematicas": [
       "gaming",
-      "tecnologÃ­a",
+      "tecnología",
       "eventos"
     ],
     "region": "Internacional",
@@ -441,12 +441,12 @@
     "id": "f9b2d326-6e95-46ff-b62d-88119fa5bee9",
     "nombre": "Antonio Blasco",
     "email": "ablasco@elperiodic.com",
-    "medio": "El PerbÃ­dic",
+    "medio": "El Periòdic",
     "cargo": "Redactor",
     "tematicas": [
       "eventos",
       "cultura",
-      "m°Úsica"
+      "música"
     ],
     "region": "Comunitat Valenciana",
     "telefono": "690120987",
