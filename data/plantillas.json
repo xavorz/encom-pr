@@ -1,0 +1,38 @@
+[
+  {
+    "id": "e37d42ab-7f5f-4cee-98b4-892109c0be95",
+    "nombre": "Festival Musical",
+    "tipo": "OWN Valencia",
+    "contenido": {
+      "titular": "[NOMBRE FESTIVAL] [AÃO]: [gancho principal]",
+      "subtitulo": "El festival [X] celebra su [NÂª] ediciÃ³n del [FECHAS] en [LUGAR]",
+      "cuerpo": "[PÃ¡rrafo 1: QuÃ© y cuÃ¡ndo]\n\n[PÃ¡rrafo 2: Detalles del programa/cartel]\n\n[PÃ¡rrafo 3: Novedades de esta ediciÃ³n]\n\n[PÃ¡rrafo 4: Cita del CEO/organizador]\n\n[PÃ¡rrafo 5: Datos prÃ¡cticos (entradas, precios, acceso)]",
+      "contactoPrensa": "Departamento de ComunicaciÃ³n Encom â prensa@encom.es â 960 000 000"
+    },
+    "createdAt": "2025-12-08T10:31:48.028Z"
+  },
+  {
+    "id": "d083709a-ce1e-4ae7-a9da-026054f4eb99",
+    "nombre": "Evento Gaming",
+    "tipo": "Valencia Game City",
+    "contenido": {
+      "titular": "[EVENTO] [AÃO]: [dato impactante sobre la ediciÃ³n]",
+      "subtitulo": "La [NÂª] ediciÃ³n de [EVENTO] se celebrarÃ¡ del [FECHAS] en [LUGAR]",
+      "cuerpo": "[PÃ¡rrafo 1: PresentaciÃ³n del evento y fechas]\n\n[PÃ¡rrafo 2: Programa y actividades principales]\n\n[PÃ¡rrafo 3: Zona profesional/B2B]\n\n[PÃ¡rrafo 4: Novedades y cita del organizador]\n\n[PÃ¡rrafo 5: Info prÃ¡ctica]",
+      "contactoPrensa": "Departamento de ComunicaciÃ³n Encom â prensa@encom.es â 960 000 000"
+    },
+    "createdAt": "2025-12-08T10:31:48.028Z"
+  },
+  {
+    "id": "a4872f0f-0ef0-42df-8a0b-271366cf78c4",
+    "nombre": "Anuncio General",
+    "tipo": "Encom",
+    "contenido": {
+      "titular": "Encom [acciÃ³n]: [quÃ©]",
+      "subtitulo": "[Contexto breve que amplÃ­a el titular]",
+      "cuerpo": "[PÃ¡rrafo 1: Noticia principal]\n\n[PÃ¡rrafo 2: Contexto y detalles]\n\n[PÃ¡rrafo 3: Implicaciones y prÃ³ximos pasos]\n\n[PÃ¡rrafo 4: Cita]",
+      "contactoPrensa": "Departamento de ComunicaciÃ³n Encom â prensa@encom.es â 960 000 000"
+    },
+    "createdAt": "2025-12-08T10:31:48.028Z"
+  }
+]
