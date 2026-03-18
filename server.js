@@ -529,6 +529,85 @@ route('POST', '/api/medios/exportar-csv', async (req, res) => {
 });
 
 // ── MAILCHIMP ──
+function mcCall(method, path, data) {
+  return new Promise((resolve, reject) => {
+    const config = readConfig('mailchimp_config.json');
+    if (!config.apiKey) return reject(new Error('Mailchimp no configurado'));
+    const dc = config.serverPrefix || 'us1';
+    const https = require('https');
+    const postData = data ? JSON.stringify(data) : '';
+    const options = {
+      hostname: `${dc}.api.mailchimp.com`, path: `/3.0${path}`, method,
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Basic ${Buffer.from('x:' + config.apiKey).toString('base64')}` }
+    };
+    if (postData) options.headers['Content-Length'] = Buffer.byteLength(postData);
+    const req = https.request(options, (r) => {
+      let body = '';
+      r.on('data', d => body += d);
+      r.on('end', () => {
+        try { const j = JSON.parse(body); if (r.statusCode >= 400) { reject(new Error(j.detail || j.title || 'Error Mailchimp')); } else resolve(j); }
+        catch { resolve({ raw: body }); }
+      });
+    });
+    req.on('error', reject);
+    if (postData) req.write(postData);
+    req.end();
+  });
+}
+
+function notaToEmailHtml(nota) {
+  const fecha = new Date(nota.updatedAt || nota.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+  const bodyHtml = (nota.cuerpo || '').split(/\n\n+/).filter(p => p.trim()).map(p =>
+    `<p style="font-family:Arial,sans-serif;font-size:15px;color:#333;line-height:1.7;margin:0 0 16px 0">${p.replace(/\n/g, '<br>')}</p>`
+  ).join('');
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:Arial,sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:24px 0">
+<tr><td align="center">
+<table width="640" cellpadding="0" cellspacing="0" style="max-width:640px;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.08)">
+  <!-- Header -->
+  <tr><td style="background:#1a56db;padding:28px 40px">
+    <table width="100%"><tr>
+      <td style="font-family:Arial,sans-serif;font-size:22px;font-weight:700;color:#fff;letter-spacing:1px">ENCOM</td>
+      <td align="right" style="font-family:Arial,sans-serif;font-size:12px;color:rgba(255,255,255,0.8)">NOTA DE PRENSA</td>
+    </tr></table>
+  </td></tr>
+  <!-- Project + Date -->
+  <tr><td style="padding:24px 40px 0">
+    <table width="100%"><tr>
+      <td style="font-family:Arial,sans-serif;font-size:12px;color:#1a56db;font-weight:600;text-transform:uppercase;letter-spacing:1px">${nota.proyecto || 'Encom'}</td>
+      <td align="right" style="font-family:Arial,sans-serif;font-size:12px;color:#999">Valencia, ${fecha}</td>
+    </tr></table>
+  </td></tr>
+  <!-- Titular -->
+  <tr><td style="padding:20px 40px 8px">
+    <h1 style="font-family:Georgia,serif;font-size:28px;line-height:1.25;color:#111;margin:0;font-weight:700">${nota.titular || 'Sin titular'}</h1>
+  </td></tr>
+  ${nota.subtitulo ? `<!-- Subtitulo -->
+  <tr><td style="padding:0 40px 16px">
+    <p style="font-family:Georgia,serif;font-size:17px;color:#555;line-height:1.4;margin:0">${nota.subtitulo}</p>
+  </td></tr>` : ''}
+  <!-- Separator -->
+  <tr><td style="padding:0 40px"><hr style="border:none;border-top:1px solid #e5e7eb;margin:8px 0 20px"></td></tr>
+  <!-- Body -->
+  <tr><td style="padding:0 40px">${bodyHtml}</td></tr>
+  <!-- Footer -->
+  <tr><td style="padding:24px 40px 0"><hr style="border:none;border-top:2px solid #1a56db;margin:0 0 16px"></td></tr>
+  <tr><td style="padding:0 40px 8px">
+    <p style="font-family:Arial,sans-serif;font-size:11px;color:#1a56db;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0">Para m\u00e1s informaci\u00f3n</p>
+  </td></tr>
+  <tr><td style="padding:0 40px 8px">
+    <p style="font-family:Arial,sans-serif;font-size:13px;color:#333;line-height:1.5;margin:0">${nota.contactoPrensa || 'prensa@encom.es'}</p>
+  </td></tr>
+  ${nota.materialesAdjuntos ? `<tr><td style="padding:0 40px 8px"><p style="font-family:Arial,sans-serif;font-size:12px;color:#666;margin:0">Materiales: <a href="${nota.materialesAdjuntos}" style="color:#1a56db">${nota.materialesAdjuntos}</a></p></td></tr>` : ''}
+  <tr><td style="padding:16px 40px 24px">
+    <p style="font-family:Arial,sans-serif;font-size:11px;color:#aaa;margin:0;text-align:center">Encom \u00b7 Gesti\u00f3n de Eventos \u00b7 Valencia</p>
+  </td></tr>
+</table>
+</td></tr></table>
+</body></html>`;
+}
+
 route('GET', '/api/mailchimp/config', async (req, res) => {
   const user = requireAdmin(req, res);
   if (!user) return;
@@ -540,68 +619,112 @@ route('POST', '/api/mailchimp/config', async (req, res) => {
   const user = requireAdmin(req, res);
   if (!user) return;
   const body = await parseBody(req);
-  writeJSON('mailchimp_config.json', { apiKey: body.apiKey || '', serverPrefix: body.serverPrefix || 'us1', defaultFromName: body.defaultFromName || 'Encom', defaultFromEmail: body.defaultFromEmail || 'prensa@encom.es' });
+  writeJSON('mailchimp_config.json', { apiKey: body.apiKey || '', serverPrefix: body.serverPrefix || 'us1', defaultFromName: body.defaultFromName || 'Encom', defaultFromEmail: body.defaultFromEmail || 'prensa@encom.es', defaultReplyTo: body.defaultReplyTo || 'javier@encom.es' });
   json(res, { ok: true });
 });
 
+// Get all Mailchimp lists
+route('GET', '/api/mailchimp/listas', async (req, res) => {
+  const user = requireAuth(req, res);
+  if (!user) return;
+  try {
+    const data = await mcCall('GET', '/lists?count=100');
+    const listas = (data.lists || []).map(l => ({ id: l.id, name: l.name, memberCount: l.stats?.member_count || 0 }));
+    json(res, listas);
+  } catch (e) { error(res, e.message, 500); }
+});
+
+// Create a new list
 route('POST', '/api/mailchimp/crear-lista', async (req, res) => {
   const user = requireAuth(req, res);
   if (!user) return;
-  const config = readConfig('mailchimp_config.json');
-  if (!config.apiKey) return error(res, 'Mailchimp no configurado');
   const body = await parseBody(req);
-  const dc = config.serverPrefix || 'us1';
-  const url = `https://${dc}.api.mailchimp.com/3.0/lists`;
-  // Use Node.js built-in https
-  const https = require('https');
-  const postData = JSON.stringify({
-    name: body.nombre || 'Lista EncomPR',
-    contact: { company: 'Encom', address1: 'Valencia', city: 'Valencia', state: 'VC', zip: '46001', country: 'ES' },
-    permission_reminder: 'Recibe esta comunicación por ser contacto de prensa de Encom',
-    campaign_defaults: { from_name: config.defaultFromName || 'Encom', from_email: config.defaultFromEmail || 'prensa@encom.es', subject: body.asunto || 'Nota de prensa', language: 'es' },
-    email_type_option: false
-  });
-  const parsed = new URL(url);
-  const options = { hostname: parsed.hostname, path: parsed.pathname, method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Basic ${Buffer.from('anystring:' + config.apiKey).toString('base64')}`, 'Content-Length': Buffer.byteLength(postData) } };
-  const apiReq = https.request(options, (apiRes) => {
-    let data = '';
-    apiRes.on('data', d => data += d);
-    apiRes.on('end', () => {
-      try { json(res, JSON.parse(data), apiRes.statusCode >= 400 ? 400 : 200); }
-      catch { json(res, { raw: data }); }
+  const config = readConfig('mailchimp_config.json');
+  try {
+    const data = await mcCall('POST', '/lists', {
+      name: body.nombre || 'Lista EncomPR',
+      contact: { company: 'Encom', address1: 'Valencia', city: 'Valencia', state: 'VC', zip: '46001', country: 'ES' },
+      permission_reminder: 'Recibe esta comunicaci\u00f3n por ser contacto de prensa de Encom',
+      campaign_defaults: { from_name: config.defaultFromName || 'Encom', from_email: config.defaultFromEmail || 'prensa@encom.es', subject: 'Nota de prensa', language: 'es' },
+      email_type_option: false
     });
-  });
-  apiReq.on('error', e => error(res, 'Error Mailchimp: ' + e.message, 500));
-  apiReq.write(postData);
-  apiReq.end();
+    json(res, { id: data.id, name: data.name }, 201);
+  } catch (e) { error(res, e.message, 500); }
 });
 
-route('POST', '/api/mailchimp/crear-campana', async (req, res) => {
+// Sync contacts to a Mailchimp list
+route('POST', '/api/mailchimp/sincronizar-contactos', async (req, res) => {
   const user = requireAuth(req, res);
   if (!user) return;
-  const config = readConfig('mailchimp_config.json');
-  if (!config.apiKey) return error(res, 'Mailchimp no configurado');
   const body = await parseBody(req);
-  const dc = config.serverPrefix || 'us1';
-  const https = require('https');
-  const postData = JSON.stringify({
-    type: 'regular',
-    recipients: { list_id: body.listId },
-    settings: { subject_line: body.asunto || 'Nota de prensa', from_name: config.defaultFromName || 'Encom', reply_to: config.defaultFromEmail || 'prensa@encom.es' }
-  });
-  const parsed = new URL(`https://${dc}.api.mailchimp.com/3.0/campaigns`);
-  const options = { hostname: parsed.hostname, path: parsed.pathname, method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Basic ${Buffer.from('anystring:' + config.apiKey).toString('base64')}`, 'Content-Length': Buffer.byteLength(postData) } };
-  const apiReq = https.request(options, (apiRes) => {
-    let data = '';
-    apiRes.on('data', d => data += d);
-    apiRes.on('end', () => {
-      try { json(res, JSON.parse(data), apiRes.statusCode >= 400 ? 400 : 200); }
-      catch { json(res, { raw: data }); }
+  const { listId, contactIds } = body;
+  if (!listId) return error(res, 'Lista requerida');
+  const medios = readJSON('medios.json');
+  const contacts = contactIds && contactIds.length > 0
+    ? medios.filter(m => contactIds.includes(m.id))
+    : medios;
+  if (contacts.length === 0) return error(res, 'No hay contactos para sincronizar');
+  let added = 0, errors_list = [];
+  for (const c of contacts) {
+    if (!c.email) continue;
+    const parts = (c.nombre || '').split(' ');
+    try {
+      await mcCall('POST', `/lists/${listId}/members`, {
+        email_address: c.email,
+        status: 'subscribed',
+        merge_fields: { FNAME: parts[0] || '', LNAME: parts.slice(1).join(' ') || '' },
+        tags: [c.medio, c.region, ...(c.tematicas || [])].filter(Boolean)
+      });
+      added++;
+    } catch (e) {
+      if (e.message && e.message.includes('already a list member')) { added++; }
+      else { errors_list.push({ email: c.email, error: e.message }); }
+    }
+  }
+  json(res, { added, errors: errors_list, total: contacts.length });
+});
+
+// Get members of a list
+route('GET', '/api/mailchimp/listas/:id/miembros', async (req, res, params) => {
+  const user = requireAuth(req, res);
+  if (!user) return;
+  try {
+    const data = await mcCall('GET', `/lists/${params.id}/members?count=200`);
+    const members = (data.members || []).map(m => ({ email: m.email_address, name: `${m.merge_fields?.FNAME || ''} ${m.merge_fields?.LNAME || ''}`.trim(), status: m.status }));
+    json(res, members);
+  } catch (e) { error(res, e.message, 500); }
+});
+
+// Create campaign from a nota
+route('POST', '/api/notas/:id/crear-campana', async (req, res, params) => {
+  const user = requireAuth(req, res);
+  if (!user) return;
+  const notas = readJSON('notas.json');
+  const nota = notas.find(n => n.id === params.id);
+  if (!nota) return error(res, 'Nota no encontrada', 404);
+  const body = await parseBody(req);
+  const { listId } = body;
+  if (!listId) return error(res, 'Selecciona una lista de envío');
+  const config = readConfig('mailchimp_config.json');
+  try {
+    // 1. Create campaign
+    const campaign = await mcCall('POST', '/campaigns', {
+      type: 'regular',
+      recipients: { list_id: listId },
+      settings: {
+        subject_line: nota.titular || 'Nota de prensa - Encom',
+        preview_text: nota.subtitulo || '',
+        from_name: config.defaultFromName || 'Encom',
+        reply_to: config.defaultReplyTo || config.defaultFromEmail || 'prensa@encom.es',
+        title: `NP: ${(nota.titular || 'Sin titular').substring(0, 60)}`
+      }
     });
-  });
-  apiReq.on('error', e => error(res, 'Error Mailchimp: ' + e.message, 500));
-  apiReq.write(postData);
-  apiReq.end();
+    if (!campaign.id) return error(res, 'No se pudo crear la campaña', 500);
+    // 2. Set HTML content
+    const emailHtml = notaToEmailHtml(nota);
+    await mcCall('PUT', `/campaigns/${campaign.id}/content`, { html: emailHtml });
+    json(res, { campaignId: campaign.id, webId: campaign.web_id, archiveUrl: campaign.archive_url, status: 'created', message: 'Campaña creada. Revísala en Mailchimp antes de enviar.' });
+  } catch (e) { error(res, 'Error creando campaña: ' + e.message, 500); }
 });
 
 // ── PLANTILLAS ──

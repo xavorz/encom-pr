@@ -691,6 +691,7 @@ async function openNotaDetail(id) {
           <button class="btn btn-sm btn-danger" onclick="deleteNota('${nota.id}')">Eliminar</button>
           <button class="btn btn-sm" onclick="exportarDocx('${nota.id}')" style="background:#059669;color:white">DOCX</button>
           <button class="btn btn-sm" onclick="exportarPdf('${nota.id}')" style="background:#dc2626;color:white">PDF</button>
+          <button class="btn btn-sm" onclick="openMailchimpCampaign('${nota.id}')" style="background:#FFE01B;color:#241C15;font-weight:600">Mailchimp</button>
         </div>
       </div>
       <h2 style="font-size:1.5rem;margin-bottom:.3rem">${nota.titular}</h2>
@@ -815,6 +816,7 @@ async function renderMedios(el) {
       <div class="flex gap-05">
         <button class="btn btn-outline btn-sm" onclick="openImportCSV()">Importar CSV</button>
         <button class="btn btn-outline btn-sm" onclick="exportCSV()">Exportar CSV</button>
+        <button class="btn btn-sm" onclick="openSyncMailchimp()" style="background:#FFE01B;color:#241C15;font-weight:600">Sync Mailchimp</button>
         <button class="btn btn-primary" onclick="openMedioForm()">+ Nuevo contacto</button>
       </div>
     </div>
@@ -926,6 +928,98 @@ async function exportCSV() {
   URL.revokeObjectURL(url);
 }
 
+// ─── Mailchimp Campaign & Sync ───────────────────────────
+async function openMailchimpCampaign(notaId) {
+  let listas = [];
+  try { listas = await api('/api/mailchimp/listas'); } catch (e) { alert('Error cargando listas de Mailchimp: ' + e.message); return; }
+  if (!listas.length) { alert('No tienes listas en Mailchimp. Crea una primero desde la sección Mailchimp.'); return; }
+  const nota = await api(`/api/notas/${notaId}`);
+  showModal(`<h3>Crear campaña en Mailchimp</h3>
+    <div class="alert alert-info" style="margin-bottom:1rem">Se creará una campaña con la nota <strong>"${esc(nota.titular)}"</strong> lista para revisar y enviar desde Mailchimp.</div>
+    <div class="form-group"><label>Lista de envío</label>
+      <select id="mc-camp-list">${listas.map(l => `<option value="${l.id}">${l.name} (${l.memberCount} contactos)</option>`).join('')}</select>
+    </div>
+    <div style="margin:1rem 0;padding:1rem;background:#f8f9fa;border-radius:8px;border:1px solid #e5e7eb">
+      <p style="font-size:12px;color:#666;margin:0 0 4px"><strong>Vista previa del asunto:</strong></p>
+      <p style="font-size:14px;margin:0">${esc(nota.titular)}</p>
+    </div>
+    <div class="flex gap-1">
+      <button class="btn btn-primary" onclick="crearCampanaMailchimp('${notaId}')" id="btn-mc-camp" style="background:#FFE01B;color:#241C15;font-weight:600">Crear campaña</button>
+      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+    </div>
+    <div id="mc-camp-status" style="margin-top:1rem"></div>
+  `);
+}
+
+async function crearCampanaMailchimp(notaId) {
+  const listId = document.getElementById('mc-camp-list').value;
+  const btn = document.getElementById('btn-mc-camp');
+  const status = document.getElementById('mc-camp-status');
+  btn.disabled = true; btn.textContent = 'Creando...';
+  status.innerHTML = '<div style="color:#1a56db">Creando campaña y subiendo contenido...</div>';
+  try {
+    const result = await api(`/api/notas/${notaId}/crear-campana`, { method: 'POST', body: JSON.stringify({ listId }) });
+    if (result.error) { status.innerHTML = `<div class="alert alert-warning">${esc(result.error)}</div>`; return; }
+    status.innerHTML = `<div class="alert alert-success">
+      <strong>Campaña creada en Mailchimp.</strong><br>
+      <span style="font-size:13px">ID: ${result.campaignId}</span><br>
+      <a href="https://us21.admin.mailchimp.com/campaigns/edit?id=${result.webId}" target="_blank" class="btn btn-sm btn-primary" style="margin-top:8px;background:#FFE01B;color:#241C15;font-weight:600">Abrir en Mailchimp para revisar y enviar</a>
+    </div>`;
+  } catch (e) { status.innerHTML = `<div class="alert alert-warning">Error: ${esc(e.message)}</div>`; }
+  finally { btn.disabled = false; btn.textContent = 'Crear campaña'; }
+}
+
+async function openSyncMailchimp() {
+  let listas = [];
+  try { listas = await api('/api/mailchimp/listas'); } catch (e) { alert('Error: ' + e.message); return; }
+  const hasSelected = document.querySelectorAll('.medio-cb:checked').length > 0;
+  showModal(`<h3>Sincronizar contactos con Mailchimp</h3>
+    <div class="form-group"><label>Lista de destino</label>
+      <select id="sync-list">${listas.map(l => `<option value="${l.id}">${l.name} (${l.memberCount})</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-group"><label>Contactos a sincronizar</label>
+      <select id="sync-scope">
+        <option value="all">Todos los contactos de la BBDD (${state.medios.length})</option>
+        <option value="filtered">Solo los filtrados actualmente</option>
+      </select>
+    </div>
+    <div class="alert alert-info" style="font-size:13px">Los contactos que ya existan en la lista se actualizarán, no se duplicarán.</div>
+    <div class="flex gap-1">
+      <button class="btn btn-primary" onclick="doSyncMailchimp()" id="btn-sync" style="background:#FFE01B;color:#241C15;font-weight:600">Sincronizar</button>
+      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+    </div>
+    <div id="sync-status" style="margin-top:1rem"></div>
+  `);
+}
+
+async function doSyncMailchimp() {
+  const listId = document.getElementById('sync-list').value;
+  const scope = document.getElementById('sync-scope').value;
+  const btn = document.getElementById('btn-sync');
+  const status = document.getElementById('sync-status');
+  let contactIds = null;
+  if (scope === 'filtered') {
+    const search = (document.getElementById('medios-search')?.value || '').toLowerCase();
+    const tematica = document.getElementById('medios-filter-tematica')?.value || '';
+    const region = document.getElementById('medios-filter-region')?.value || '';
+    let filtered = state.medios;
+    if (search) filtered = filtered.filter(m => m.nombre.toLowerCase().includes(search) || m.medio.toLowerCase().includes(search));
+    if (tematica) filtered = filtered.filter(m => m.tematicas && m.tematicas.includes(tematica));
+    if (region) filtered = filtered.filter(m => m.region === region);
+    contactIds = filtered.map(m => m.id);
+  }
+  btn.disabled = true; btn.textContent = 'Sincronizando...';
+  status.innerHTML = '<div style="color:#1a56db">Subiendo contactos a Mailchimp... esto puede tardar.</div>';
+  try {
+    const result = await api('/api/mailchimp/sincronizar-contactos', { method: 'POST', body: JSON.stringify({ listId, contactIds }) });
+    let msg = `<strong>${result.added} contactos sincronizados</strong> de ${result.total} total.`;
+    if (result.errors && result.errors.length > 0) msg += `<br><span style="color:#dc2626">${result.errors.length} errores: ${result.errors.slice(0,3).map(e => e.email + ': ' + e.error).join(', ')}</span>`;
+    status.innerHTML = `<div class="alert alert-success">${msg}</div>`;
+  } catch (e) { status.innerHTML = `<div class="alert alert-warning">Error: ${esc(e.message)}</div>`; }
+  finally { btn.disabled = false; btn.textContent = 'Sincronizar'; }
+}
+
 // ─── Plantillas ──────────────────────────────────────────
 async function renderPlantillas(el) {
   state.plantillas = await api('/api/plantillas');
@@ -1016,52 +1110,76 @@ async function renderReporting(el) {
 async function renderMailchimp(el) {
   let config = {};
   try { config = await api('/api/mailchimp/config'); } catch {}
+  let listas = [];
+  if (config.configured) { try { listas = await api('/api/mailchimp/listas'); } catch {} }
   el.innerHTML = `<div class="fade-in">
-    <div class="card">
-      <div class="card-header"><h3>Estado de la integración</h3></div>
-      <div class="alert ${config.configured ? 'alert-success' : 'alert-warning'}">${config.configured ? 'Mailchimp configurado correctamente (' + config.serverPrefix + ')' : 'Mailchimp no configurado. Introduce tu API Key en Configuración.'}</div>
+    <div class="card mb-2">
+      <div class="card-header"><h3>Estado de la integraci\u00f3n</h3></div>
+      <div class="alert ${config.configured ? 'alert-success' : 'alert-warning'}">${config.configured ? 'Mailchimp conectado (' + config.serverPrefix + ') \u2014 ' + listas.length + ' listas encontradas' : 'Mailchimp no configurado. Introduce tu API Key en Configuraci\u00f3n.'}</div>
+    </div>
+    ${config.configured ? `
+    <div class="card mb-2">
+      <div class="card-header"><h3>Tus listas en Mailchimp</h3></div>
+      ${listas.length === 0 ? '<p class="text-muted">No hay listas. Crea una abajo.</p>' :
+        `<table><thead><tr><th>Nombre</th><th>Contactos</th><th>Acciones</th></tr></thead><tbody>
+        ${listas.map(l => `<tr><td><strong>${l.name}</strong></td><td>${l.memberCount}</td>
+          <td><button class="btn btn-sm btn-outline" onclick="verMiembrosLista('${l.id}','${esc(l.name)}')">Ver miembros</button>
+          <button class="btn btn-sm" style="background:#FFE01B;color:#241C15" onclick="syncTodosALista('${l.id}')">Sync BBDD</button></td></tr>`).join('')}
+        </tbody></table>`}
     </div>
     <div class="grid grid-2">
       <div class="card">
-        <div class="card-header"><h3>Exportar contactos</h3></div>
-        <p class="text-sm text-muted mb-1">Exporta la base de medios filtrada en formato CSV compatible con Mailchimp</p>
-        <div class="form-group"><label>Temática</label>
-          <select id="mc-tematica"><option value="">Todas</option><option value="gaming">Gaming</option><option value="eventos">Eventos</option><option value="música">Música</option><option value="cultura">Cultura</option><option value="lifestyle">Lifestyle</option><option value="tecnología">Tecnología</option></select>
-        </div>
-        <div class="form-group"><label>Región</label>
-          <select id="mc-region"><option value="">Todas</option><option value="Valencia">Valencia</option><option value="Comunitat Valenciana">Comunitat Valenciana</option><option value="Nacional">Nacional</option><option value="Internacional">Internacional</option></select>
-        </div>
-        <button class="btn btn-primary" onclick="exportMailchimpCSV()">Descargar CSV para Mailchimp</button>
-      </div>
-      <div class="card">
-        <div class="card-header"><h3>Crear lista en Mailchimp</h3></div>
-        <p class="text-sm text-muted mb-1">Crea una nueva lista/audiencia directamente vía API</p>
-        <div class="form-group"><label>Nombre de la lista</label><input id="mc-lista-nombre" placeholder="Ej: Medios OWN 2026"></div>
-        <button class="btn btn-primary" onclick="crearListaMailchimp()" ${!config.configured ? 'disabled' : ''}>Crear lista</button>
+        <div class="card-header"><h3>Crear nueva lista</h3></div>
+        <div class="form-group"><label>Nombre</label><input id="mc-lista-nombre" placeholder="Ej: Medios OWN 2026"></div>
+        <button class="btn btn-primary" onclick="crearListaMailchimp()">Crear lista</button>
         <div id="mc-result" class="mt-1"></div>
       </div>
-    </div>
+      <div class="card">
+        <div class="card-header"><h3>Exportar CSV</h3></div>
+        <p class="text-sm text-muted mb-1">Descarga la BBDD de medios en formato CSV</p>
+        <button class="btn btn-outline" onclick="exportMailchimpCSV()">Descargar CSV</button>
+      </div>
+    </div>` : ''}
   </div>`;
 }
 
+async function verMiembrosLista(listId, nombre) {
+  try {
+    const members = await api(`/api/mailchimp/listas/${listId}/miembros`);
+    showModal(`<h3>Miembros de "${nombre}"</h3>
+      <p class="text-muted mb-1">${members.length} contactos</p>
+      <div style="max-height:400px;overflow-y:auto">
+      <table><thead><tr><th>Nombre</th><th>Email</th><th>Estado</th></tr></thead><tbody>
+      ${members.map(m => `<tr><td>${m.name || '-'}</td><td>${m.email}</td><td><span class="badge badge-${m.status==='subscribed'?'validada':'borrador'}">${m.status}</span></td></tr>`).join('')}
+      </tbody></table></div>
+      <button class="btn btn-outline mt-1" onclick="closeModal()">Cerrar</button>
+    `);
+  } catch (e) { alert('Error: ' + e.message); }
+}
+
+async function syncTodosALista(listId) {
+  if (!confirm('¿Sincronizar TODOS los contactos de la BBDD de medios con esta lista?')) return;
+  try {
+    const result = await api('/api/mailchimp/sincronizar-contactos', { method: 'POST', body: JSON.stringify({ listId }) });
+    alert(`${result.added} contactos sincronizados de ${result.total}.${result.errors?.length ? ' Errores: ' + result.errors.length : ''}`);
+    renderPage('mailchimp');
+  } catch (e) { alert('Error: ' + e.message); }
+}
+
 async function exportMailchimpCSV() {
-  const tematica = document.getElementById('mc-tematica')?.value;
-  const region = document.getElementById('mc-region')?.value;
-  const body = {};
-  if (tematica) body.tematicas = [tematica];
-  if (region) body.region = region;
-  const res = await fetch(API + '/api/medios/exportar-csv', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + state.token }, body: JSON.stringify(body) });
+  const res = await fetch(API + '/api/medios/exportar-csv', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + state.token }, body: JSON.stringify({}) });
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = 'mailchimp_import.csv'; a.click();
+  const a = document.createElement('a'); a.href = url; a.download = 'mailchimp_import.csv'; a.click();
 }
 
 async function crearListaMailchimp() {
   const nombre = document.getElementById('mc-lista-nombre').value;
+  if (!nombre) { alert('Escribe un nombre para la lista'); return; }
   try {
     const data = await api('/api/mailchimp/crear-lista', { method: 'POST', body: JSON.stringify({ nombre }) });
-    document.getElementById('mc-result').innerHTML = `<div class="alert alert-success">Lista creada: ${data.name || nombre} (ID: ${data.id || 'N/A'})</div>`;
+    document.getElementById('mc-result').innerHTML = `<div class="alert alert-success">Lista creada: ${data.name} (ID: ${data.id})</div>`;
+    setTimeout(() => renderPage('mailchimp'), 1500);
   } catch (err) {
     document.getElementById('mc-result').innerHTML = `<div class="alert alert-warning">${err.message}</div>`;
   }
