@@ -643,7 +643,7 @@ async function regenerarConFeedback() {
 }
 
 function exportarDocx(notaId) {
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('encompr_token');
   window.open(`/api/notas/${notaId}/exportar-docx?_token=${token}`, '_blank');
 }
 
