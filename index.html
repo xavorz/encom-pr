@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EncomPR — Gestión de Notas de Prensa</title>
+<style>
+/* ─── Reset & Base ─── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --primary:#1a1a2e;--primary-light:#16213e;--accent:#e94560;--accent-hover:#d63851;
+  --success:#27ae60;--warning:#f39c12;--info:#2980b9;--danger:#e74c3c;
+  --bg:#f0f2f5;--white:#fff;--text:#2c3e50;--text-light:#7f8c8d;--border:#dfe6e9;
+  --shadow:0 2px 10px rgba(0,0,0,.08);--radius:10px;
+  --sidebar-w:260px;--header-h:60px;
+}
+html{font-size:14px}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.6}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+button{cursor:pointer;font-family:inherit}
+input,textarea,select{font-family:inherit;font-size:1rem}
+
+/* ─── Layout ─── */
+#app-login{display:flex;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,var(--primary),var(--primary-light))}
+.login-card{background:var(--white);border-radius:var(--radius);padding:2.5rem;width:380px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.login-card h1{font-size:1.8rem;color:var(--primary);margin-bottom:.3rem}
+.login-card .subtitle{color:var(--text-light);margin-bottom:2rem;font-size:.95rem}
+.login-card .brand{display:flex;align-items:center;gap:.7rem;margin-bottom:1.5rem}
+.login-card .brand .logo{width:48px;height:48px;background:var(--accent);border-radius:12px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:1.2rem}
+
+#app-main{display:none}
+.sidebar{position:fixed;left:0;top:0;bottom:0;width:var(--sidebar-w);background:var(--primary);color:#fff;z-index:100;display:flex;flex-direction:column}
+.sidebar .brand{padding:1.2rem 1.5rem;border-bottom:1px solid rgba(255,255,255,.1);display:flex;align-items:center;gap:.7rem}
+.sidebar .brand .logo{width:38px;height:38px;background:var(--accent);border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1rem}
+.sidebar .brand span{font-weight:700;font-size:1.1rem}
+.sidebar nav{flex:1;padding:1rem 0;overflow-y:auto}
+.sidebar nav a{display:flex;align-items:center;gap:.8rem;padding:.75rem 1.5rem;color:rgba(255,255,255,.7);transition:all .2s;font-size:.95rem}
+.sidebar nav a:hover,.sidebar nav a.active{background:rgba(255,255,255,.1);color:#fff;text-decoration:none}
+.sidebar nav a.active{border-left:3px solid var(--accent)}
+.sidebar .user-info{padding:1rem 1.5rem;border-top:1px solid rgba(255,255,255,.1);font-size:.85rem}
+.sidebar .user-info .name{font-weight:600;color:#fff}
+.sidebar .user-info .role{color:rgba(255,255,255,.5);text-transform:capitalize}
+
+.main-content{margin-left:var(--sidebar-w);min-height:100vh}
+.topbar{height:var(--header-h);background:var(--white);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 2rem;position:sticky;top:0;z-index:50}
+.topbar h2{font-size:1.2rem;color:var(--primary)}
+.topbar .actions{display:flex;align-items:center;gap:1rem}
+.page-content{padding:2rem}
+
+/* ─── Components ─── */
+.btn{display:inline-flex;align-items:center;gap:.5rem;padding:.6rem 1.2rem;border-radius:8px;border:none;font-weight:600;font-size:.9rem;transition:all .2s}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent-hover)}
+.btn-secondary{background:var(--primary);color:#fff}.btn-secondary:hover{background:var(--primary-light)}
+.btn-success{background:var(--success);color:#fff}
+.btn-warning{background:var(--warning);color:#fff}
+.btn-danger{background:var(--danger);color:#fff}
+.btn-outline{background:transparent;border:2px solid var(--border);color:var(--text)}.btn-outline:hover{border-color:var(--accent);color:var(--accent)}
+.btn-sm{padding:.4rem .8rem;font-size:.8rem}
+.btn-icon{width:36px;height:36px;padding:0;justify-content:center;border-radius:50%}
+
+.form-group{margin-bottom:1.2rem}
+.form-group label{display:block;font-weight:600;margin-bottom:.4rem;font-size:.9rem;color:var(--text)}
+.form-group input,.form-group textarea,.form-group select{width:100%;padding:.7rem 1rem;border:2px solid var(--border);border-radius:8px;transition:border-color .2s;background:#fff}
+.form-group input:focus,.form-group textarea:focus,.form-group select:focus{outline:none;border-color:var(--accent)}
+.form-group textarea{resize:vertical;min-height:100px}
+.form-group .hint{font-size:.8rem;color:var(--text-light);margin-top:.3rem}
+
+.card{background:var(--white);border-radius:var(--radius);padding:1.5rem;box-shadow:var(--shadow);margin-bottom:1.5rem}
+.card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem}
+.card-header h3{font-size:1.1rem;color:var(--primary)}
+
+.badge{display:inline-block;padding:.2rem .7rem;border-radius:20px;font-size:.75rem;font-weight:600;text-transform:uppercase}
+.badge-borrador{background:#eee;color:#666}
+.badge-en_validacion{background:#fff3cd;color:#856404}
+.badge-validada{background:#d4edda;color:#155724}
+.badge-enviada{background:#cce5ff;color:#004085}
+.badge-publicada{background:#d1ecf1;color:#0c5460}
+
+.stat-card{text-align:center;padding:1.5rem}
+.stat-card .number{font-size:2.2rem;font-weight:800;color:var(--primary)}
+.stat-card .label{font-size:.85rem;color:var(--text-light);margin-top:.3rem}
+
+.grid{display:grid;gap:1.5rem}
+.grid-2{grid-template-columns:repeat(2,1fr)}
+.grid-3{grid-template-columns:repeat(3,1fr)}
+.grid-4{grid-template-columns:repeat(4,1fr)}
+@media(max-width:1024px){.grid-3,.grid-4{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:768px){.grid-2,.grid-3,.grid-4{grid-template-columns:1fr}.sidebar{display:none}.main-content{margin-left:0}}
+
+table{width:100%;border-collapse:collapse}
+table th{text-align:left;padding:.8rem 1rem;font-size:.85rem;color:var(--text-light);border-bottom:2px solid var(--border);font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+table td{padding:.8rem 1rem;border-bottom:1px solid var(--border);font-size:.9rem}
+table tr:hover{background:rgba(0,0,0,.02)}
+
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:center;justify-content:center}
+.modal{background:var(--white);border-radius:var(--radius);padding:2rem;max-width:700px;width:95%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.modal h3{font-size:1.3rem;color:var(--primary);margin-bottom:1.5rem}
+
+.notif-badge{position:relative}
+.notif-badge .count{position:absolute;top:-5px;right:-5px;background:var(--accent);color:#fff;border-radius:50%;width:18px;height:18px;font-size:.7rem;display:flex;align-items:center;justify-content:center;font-weight:700}
+
+.tabs{display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:1.5rem}
+.tab{padding:.7rem 1.5rem;font-weight:600;color:var(--text-light);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;transition:all .2s}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+
+.search-box{position:relative}
+.search-box input{padding-left:2.5rem}
+.search-box::before{content:"🔍";position:absolute;left:.8rem;top:50%;transform:translateY(-50%);font-size:.9rem}
+
+.empty-state{text-align:center;padding:3rem;color:var(--text-light)}
+.empty-state .icon{font-size:3rem;margin-bottom:1rem}
+
+.timeline{border-left:3px solid var(--border);padding-left:1.5rem;margin:1rem 0}
+.timeline-item{position:relative;margin-bottom:1.2rem}
+.timeline-item::before{content:"";position:absolute;left:-1.85rem;top:.4rem;width:12px;height:12px;border-radius:50%;background:var(--accent)}
+.timeline-item .date{font-size:.8rem;color:var(--text-light)}
+.timeline-item .content{font-size:.9rem}
+
+.progress-bar{height:8px;background:var(--border);border-radius:4px;overflow:hidden}
+.progress-bar .fill{height:100%;border-radius:4px;transition:width .5s}
+
+.alert{padding:1rem 1.5rem;border-radius:8px;margin-bottom:1rem;font-size:.9rem}
+.alert-info{background:#e8f4f8;color:var(--info);border-left:4px solid var(--info)}
+.alert-success{background:#e8f8e8;color:var(--success);border-left:4px solid var(--success)}
+.alert-warning{background:#fef9e7;color:#856404;border-left:4px solid var(--warning)}
+
+.chip{display:inline-block;padding:.2rem .6rem;background:var(--bg);border-radius:15px;font-size:.8rem;margin:.2rem}
+.chip-accent{background:rgba(233,69,96,.1);color:var(--accent)}
+
+.flex{display:flex}.flex-between{justify-content:space-between}.flex-center{align-items:center}.gap-1{gap:1rem}.gap-05{gap:.5rem}
+.mt-1{margin-top:1rem}.mt-2{margin-top:2rem}.mb-1{margin-bottom:1rem}.mb-2{margin-bottom:2rem}
+.text-right{text-align:right}.text-center{text-align:center}
+.text-muted{color:var(--text-light)}.text-sm{font-size:.85rem}
+.hidden{display:none!important}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:rgba(0,0,0,.2);border-radius:3px}
+
+/* Animation */
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.fade-in{animation:fadeIn .3s ease-out}
+</style>
+</head>
+<body>
+
+<!-- ═══ LOGIN ═══ -->
+<div id="app-login">
+  <div class="login-card fade-in">
+    <div class="brand">
+      <div class="logo">EP</div>
+      <div>
+        <h1>EncomPR</h1>
+        <div class="subtitle">Sistema de Gestión de Notas de Prensa</div>
+      </div>
+    </div>
+    <form onsubmit="doLogin(event)">
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="login-email" placeholder="tu@encom.es" required>
+      </div>
+      <div class="form-group">
+        <label>Contraseña</label>
+        <input type="password" id="login-password" placeholder="••••••••" required>
+      </div>
+      <div id="login-error" class="alert alert-warning hidden"></div>
+      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:.5rem;padding:.8rem">Iniciar sesión</button>
+    </form>
+  </div>
+</div>
+
+<!-- ═══ MAIN APP ═══ -->
+<div id="app-main">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="logo">EP</div>
+      <span>EncomPR</span>
+    </div>
+    <nav id="sidebar-nav">
+      <a href="#" data-page="dashboard" class="active">📊 Dashboard</a>
+      <a href="#" data-page="notas">📝 Notas de prensa</a>
+      <a href="#" data-page="medios">📇 Base de medios</a>
+      <a href="#" data-page="plantillas">📋 Plantillas</a>
+      <a href="#" data-page="reporting">📈 Reporting</a>
+      <a href="#" data-page="mailchimp" id="nav-mailchimp">📧 Mailchimp</a>
+      <a href="#" data-page="usuarios" id="nav-usuarios">👥 Usuarios</a>
+      <a href="#" data-page="settings" id="nav-settings">⚙️ Configuración</a>
+    </nav>
+    <div class="user-info">
+      <div class="name" id="sidebar-user-name"></div>
+      <div class="role" id="sidebar-user-role"></div>
+      <a href="#" onclick="doLogout()" style="color:rgba(255,255,255,.5);font-size:.8rem">Cerrar sesión</a>
+    </div>
+  </aside>
+
+  <!-- Main content -->
+  <div class="main-content">
+    <div class="topbar">
+      <h2 id="page-title">Dashboard</h2>
+      <div class="actions">
+        <div class="notif-badge" onclick="toggleNotifs()" style="cursor:pointer">
+          🔔<span class="count hidden" id="notif-count">0</span>
+        </div>
+      </div>
+    </div>
+    <div class="page-content" id="page-content"></div>
+  </div>
+</div>
+
+<!-- ═══ VALIDATION PAGE (external) ═══ -->
+<div id="app-validar" style="display:none">
+  <div style="max-width:800px;margin:2rem auto;padding:0 1rem">
+    <div class="card">
+      <div class="brand" style="display:flex;align-items:center;gap:.7rem;margin-bottom:1.5rem">
+        <div style="width:42px;height:42px;background:var(--accent);border-radius:10px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800">EP</div>
+        <div><h1 style="font-size:1.4rem;color:var(--primary)">EncomPR</h1><div class="text-muted text-sm">Validación externa de nota de prensa</div></div>
+      </div>
+      <div id="validar-content"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL CONTAINER ═══ -->
+<div id="modal-container"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// EncomPR — Frontend SPA
+// ═══════════════════════════════════════════════════════════
+
+const API = '';
+let state = { token: null, user: null, page: 'dashboard', notas: [], medios: [], notifs: [], plantillas: [] };
+
+// ─── API Helpers ─────────────────────────────────────────
+async function api(path, opts = {}) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (state.token) headers['Authorization'] = 'Bearer ' + state.token;
+  const res = await fetch(API + path, { ...opts, headers: { ...headers, ...(opts.headers || {}) } });
+  if (res.headers.get('content-type')?.includes('text/csv')) return res;
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Error');
+  return data;
+}
+
+// ─── Auth ────────────────────────────────────────────────
+async function doLogin(e) {
+  e.preventDefault();
+  const email = document.getElementById('login-email').value;
+  const pw = document.getElementById('login-password').value;
+  try {
+    const data = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password: pw }) });
+    state.token = data.token;
+    state.user = data.user;
+    localStorage.setItem('encompr_token', data.token);
+    showApp();
+  } catch (err) {
+    const el = document.getElementById('login-error');
+    el.textContent = err.message;
+    el.classList.remove('hidden');
+  }
+}
+
+function doLogout() {
+  api('/api/auth/logout', { method: 'POST' }).catch(() => {});
+  state.token = null; state.user = null;
+  localStorage.removeItem('encompr_token');
+  document.getElementById('app-main').style.display = 'none';
+  document.getElementById('app-login').style.display = 'flex';
+}
+
+async function checkAuth() {
+  const token = localStorage.getItem('encompr_token');
+  if (!token) return false;
+  state.token = token;
+  try {
+    state.user = await api('/api/auth/me');
+    return true;
+  } catch { localStorage.removeItem('encompr_token'); return false; }
+}
+
+function showApp() {
+  document.getElementById('app-login').style.display = 'none';
+  document.getElementById('app-main').style.display = 'block';
+  document.getElementById('sidebar-user-name').textContent = state.user.name;
+  document.getElementById('sidebar-user-role').textContent = state.user.role;
+  if (state.user.role !== 'admin') {
+    document.getElementById('nav-usuarios').style.display = 'none';
+  }
+  navigate('dashboard');
+  loadNotifs();
+}
+
+// ─── Navigation ──────────────────────────────────────────
+function navigate(page) {
+  state.page = page;
+  document.querySelectorAll('#sidebar-nav a').forEach(a => a.classList.toggle('active', a.dataset.page === page));
+  const titles = { dashboard: 'Dashboard', notas: 'Notas de Prensa', medios: 'Base de Medios', plantillas: 'Plantillas', reporting: 'Reporting', mailchimp: 'Integración Mailchimp', usuarios: 'Gestión de Usuarios', settings: 'Configuración' };
+  document.getElementById('page-title').textContent = titles[page] || page;
+  renderPage(page);
+}
+
+document.querySelectorAll('#sidebar-nav a').forEach(a => {
+  a.addEventListener('click', e => { e.preventDefault(); navigate(a.dataset.page); });
+});
+
+// ─── Notifications ───────────────────────────────────────
+async function loadNotifs() {
+  try {
+    state.notifs = await api('/api/notificaciones');
+    const unread = state.notifs.filter(n => !n.read).length;
+    const badge = document.getElementById('notif-count');
+    if (unread > 0) { badge.textContent = unread; badge.classList.remove('hidden'); }
+    else badge.classList.add('hidden');
+  } catch {}
+}
+
+function toggleNotifs() {
+  const existing = document.getElementById('notif-dropdown');
+  if (existing) { existing.remove(); return; }
+  const dd = document.createElement('div');
+  dd.id = 'notif-dropdown';
+  dd.style.cssText = 'position:fixed;top:50px;right:20px;width:350px;max-height:400px;overflow-y:auto;background:#fff;border-radius:10px;box-shadow:0 10px 40px rgba(0,0,0,.15);z-index:300;padding:1rem';
+  const unread = state.notifs.filter(n => !n.read);
+  dd.innerHTML = `<h4 style="margin-bottom:.8rem">Notificaciones${unread.length ? ` (${unread.length})` : ''}</h4>` +
+    (state.notifs.length === 0 ? '<p class="text-muted text-sm">Sin notificaciones</p>' :
+    state.notifs.slice(0, 10).map(n => `<div style="padding:.5rem 0;border-bottom:1px solid var(--border);opacity:${n.read ? '.6' : '1'}" onclick="markNotifRead('${n.id}')"><div class="text-sm">${n.message}</div><div class="text-muted" style="font-size:.75rem">${formatDate(n.createdAt)}</div></div>`).join(''));
+  document.body.appendChild(dd);
+  setTimeout(() => document.addEventListener('click', function closeDD(e) { if (!dd.contains(e.target)) { dd.remove(); document.removeEventListener('click', closeDD); } }, { once: false }), 10);
+}
+
+async function markNotifRead(id) {
+  await api(`/api/notificaciones/${id}`, { method: 'PATCH' });
+  loadNotifs();
+}
+
+// ─── Render Pages ────────────────────────────────────────
+async function renderPage(page) {
+  const el = document.getElementById('page-content');
+  el.innerHTML = '<div class="text-center text-muted" style="padding:3rem">Cargando...</div>';
+  try {
+    switch (page) {
+      case 'dashboard': await renderDashboard(el); break;
+      case 'notas': await renderNotas(el); break;
+      case 'medios': await renderMedios(el); break;
+      case 'plantillas': await renderPlantillas(el); break;
+      case 'reporting': await renderReporting(el); break;
+      case 'mailchimp': await renderMailchimp(el); break;
+      case 'usuarios': await renderUsuarios(el); break;
+      case 'settings': await renderSettings(el); break;
+    }
+  } catch (err) { el.innerHTML = `<div class="alert alert-warning">Error: ${err.message}</div>`; }
+}
+
+// ─── Dashboard ───────────────────────────────────────────
+async function renderDashboard(el) {
+  const d = await api('/api/dashboard');
+  el.innerHTML = `<div class="fade-in">
+    <div class="grid grid-4">
+      <div class="card stat-card"><div class="number">${d.totalNotas}</div><div class="label">Notas de prensa</div></div>
+      <div class="card stat-card"><div class="number">${d.totalPublicaciones}</div><div class="label">Publicaciones</div></div>
+      <div class="card stat-card"><div class="number">${d.totalEnvios}</div><div class="label">Envíos realizados</div></div>
+      <div class="card stat-card"><div class="number">${d.totalMedios}</div><div class="label">Contactos de medios</div></div>
+    </div>
+    <div class="grid grid-2">
+      <div class="card">
+        <div class="card-header"><h3>Estado de las notas</h3></div>
+        <div id="chart-estados"></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><h3>Por proyecto</h3></div>
+        <table><thead><tr><th>Proyecto</th><th>Notas</th><th>Envíos</th><th>Publicaciones</th></tr></thead><tbody>
+        ${Object.entries(d.porProyecto).map(([k, v]) => `<tr><td><strong>${k}</strong></td><td>${v.total}</td><td>${v.envios}</td><td>${v.publicaciones}</td></tr>`).join('')}
+        </tbody></table>
+      </div>
+    </div>
+    <div class="grid grid-2">
+      <div class="card">
+        <div class="card-header"><h3>Top medios</h3></div>
+        ${d.topMedios.length === 0 ? '<p class="text-muted">Sin datos</p>' : d.topMedios.map((m, i) => `<div class="flex flex-between flex-center" style="padding:.4rem 0"><span>${i + 1}. ${m.medio}</span><span class="badge badge-publicada">${m.publicaciones} pub.</span></div>`).join('')}
+      </div>
+      <div class="card">
+        <div class="card-header"><h3>Evolución (6 meses)</h3></div>
+        <div id="chart-evolucion"></div>
+        <div style="margin-top:.5rem">
+        ${d.evolucion.map(m => `<div class="flex flex-between text-sm" style="padding:.3rem 0"><span>${m.mes}</span><span>${m.notas} notas · ${m.publicaciones} pub.</span></div>`).join('')}
+        </div>
+      </div>
+    </div>
+    ${d.sugerencias.length > 0 ? `<div class="card"><div class="card-header"><h3>💡 Propuestas de mejora</h3></div>${d.sugerencias.map(s => `<div class="alert alert-info">${s}</div>`).join('')}</div>` : ''}
+  </div>`;
+  renderEstadosChart(d.estados);
+}
+
+function renderEstadosChart(estados) {
+  const el = document.getElementById('chart-estados');
+  if (!el) return;
+  const total = Object.values(estados).reduce((a, b) => a + b, 0) || 1;
+  const colors = { borrador: '#bdc3c7', en_validacion: '#f39c12', validada: '#27ae60', enviada: '#2980b9', publicada: '#1abc9c' };
+  const labels = { borrador: 'Borrador', en_validacion: 'En validación', validada: 'Validada', enviada: 'Enviada', publicada: 'Publicada' };
+  el.innerHTML = Object.entries(estados).map(([k, v]) => {
+    const pct = Math.round(v / total * 100);
+    return `<div style="margin-bottom:.8rem"><div class="flex flex-between text-sm mb-05"><span>${labels[k] || k}</span><span>${v} (${pct}%)</span></div><div class="progress-bar"><div class="fill" style="width:${pct}%;background:${colors[k] || '#999'}"></div></div></div>`;
+  }).join('');
+}
+
+// ─── Notas de Prensa ─────────────────────────────────────
+async function renderNotas(el) {
+  state.notas = await api('/api/notas');
+  el.innerHTML = `<div class="fade-in">
+    <div class="flex flex-between flex-center mb-2">
+      <div class="flex gap-1 flex-center">
+        <div class="search-box"><input id="notas-search" placeholder="Buscar notas..." oninput="filterNotas()" style="padding-left:2.5rem;width:300px"></div>
+        <select id="notas-filter-estado" onchange="filterNotas()" style="padding:.5rem;border:2px solid var(--border);border-radius:8px">
+          <option value="">Todos los estados</option>
+          <option value="borrador">Borrador</option>
+          <option value="en_validacion">En validación</option>
+          <option value="validada">Validada</option>
+          <option value="enviada">Enviada</option>
+          <option value="publicada">Publicada</option>
+        </select>
+        <select id="notas-filter-proyecto" onchange="filterNotas()" style="padding:.5rem;border:2px solid var(--border);border-radius:8px">
+          <option value="">Todos los proyectos</option>
+          <option value="OWN Valencia">OWN Valencia</option>
+          <option value="Valencia Game City">Valencia Game City</option>
+          <option value="IDASFEST">IDASFEST</option>
+          <option value="Encom">Encom</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" onclick="openNotaForm()">+ Nueva nota</button>
+    </div>
+    <div id="notas-list"></div>
+  </div>`;
+  filterNotas();
+}
+
+function filterNotas() {
+  const search = (document.getElementById('notas-search')?.value || '').toLowerCase();
+  const estado = document.getElementById('notas-filter-estado')?.value || '';
+  const proyecto = document.getElementById('notas-filter-proyecto')?.value || '';
+  let filtered = state.notas;
+  if (search) filtered = filtered.filter(n => n.titular.toLowerCase().includes(search) || n.proyecto.toLowerCase().includes(search));
+  if (estado) filtered = filtered.filter(n => n.estado === estado);
+  if (proyecto) filtered = filtered.filter(n => n.proyecto === proyecto);
+  const el = document.getElementById('notas-list');
+  if (!el) return;
+  if (filtered.length === 0) {
+    el.innerHTML = '<div class="empty-state"><div class="icon">📝</div><p>No se encontraron notas</p></div>';
+    return;
+  }
+  el.innerHTML = filtered.map(n => `<div class="card" style="cursor:pointer" onclick="openNotaDetail('${n.id}')">
+    <div class="flex flex-between flex-center">
+      <div>
+        <div class="flex gap-05 flex-center mb-05"><span class="badge badge-${n.estado}">${formatEstado(n.estado)}</span><span class="chip">${n.proyecto}</span></div>
+        <h3 style="font-size:1.05rem;margin-bottom:.3rem">${n.titular || 'Sin título'}</h3>
+        <p class="text-muted text-sm">${n.subtitulo || ''}</p>
+      </div>
+      <div class="text-right text-sm text-muted">
+        <div>${n.autorNombre}</div>
+        <div>${formatDate(n.updatedAt)}</div>
+        <div class="mt-1">${(n.publicaciones||[]).length} pub. · ${(n.envios||[]).length} envíos</div>
+      </div>
+    </div>
+  </div>`).join('');
+}
+
+function formatEstado(e) {
+  return { borrador: 'Borrador', en_validacion: 'En validación', validada: 'Validada', enviada: 'Enviada', publicada: 'Publicada' }[e] || e;
+}
+
+function formatDate(d) {
+  if (!d) return '';
+  return new Date(d).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+// ─── Nota Form ───────────────────────────────────────────
+function openNotaForm(nota = null) {
+  const isEdit = !!nota;
+  showModal(`<h3>${isEdit ? 'Editar' : 'Nueva'} nota de prensa</h3>
+    <div class="form-group"><label>Proyecto / Evento</label>
+      <select id="nf-proyecto"><option value="OWN Valencia" ${nota?.proyecto==='OWN Valencia'?'selected':''}>OWN Valencia</option><option value="Valencia Game City" ${nota?.proyecto==='Valencia Game City'?'selected':''}>Valencia Game City</option><option value="IDASFEST" ${nota?.proyecto==='IDASFEST'?'selected':''}>IDASFEST</option><option value="Encom" ${nota?.proyecto==='Encom'?'selected':''}>Encom</option><option value="Otro" ${nota?.proyecto==='Otro'?'selected':''}>Otro</option></select>
+    </div>
+    <div class="form-group"><label>Titular</label><input id="nf-titular" value="${esc(nota?.titular)}" placeholder="Titular principal de la nota"></div>
+    <div class="form-group"><label>Subtítulo</label><input id="nf-subtitulo" value="${esc(nota?.subtitulo)}" placeholder="Ampliación del titular"></div>
+    <div class="form-group"><label>Cuerpo de la nota</label><textarea id="nf-cuerpo" rows="10" placeholder="Texto completo de la nota de prensa...">${esc(nota?.cuerpo)}</textarea></div>
+    <div class="grid grid-2">
+      <div class="form-group"><label>Datos clave / Cifras</label><textarea id="nf-datos" rows="3" placeholder="Datos numéricos relevantes...">${esc(nota?.datosClaveRaw)}</textarea></div>
+      <div class="form-group"><label>Citas textuales</label><textarea id="nf-citas" rows="3" placeholder='"Declaración del portavoz"...'>${esc(nota?.citas)}</textarea></div>
+    </div>
+    <div class="form-group"><label>Contacto de prensa</label><input id="nf-contacto" value="${esc(nota?.contactoPrensa)}" placeholder="Email/teléfono para periodistas"></div>
+    <div class="form-group"><label>Material adjunto (links)</label><input id="nf-material" value="${esc(nota?.materialesAdjuntos)}" placeholder="URLs de imágenes/vídeos/press kit"></div>
+    <div class="form-group"><label>Nota de ejemplo / referencia (opcional)</label><textarea id="nf-ejemplo" rows="3" placeholder="Pega aquí una nota similar como referencia...">${esc(nota?.notaEjemplo)}</textarea></div>
+    <div class="flex gap-1" style="margin-top:1.5rem">
+      <button class="btn btn-primary" onclick="saveNota('${nota?.id || ''}')">${isEdit ? 'Guardar cambios' : 'Crear nota'}</button>
+      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+    </div>
+  `);
+}
+
+async function saveNota(id) {
+  const body = {
+    proyecto: document.getElementById('nf-proyecto').value,
+    titular: document.getElementById('nf-titular').value,
+    subtitulo: document.getElementById('nf-subtitulo').value,
+    cuerpo: document.getElementById('nf-cuerpo').value,
+    datosClaveRaw: document.getElementById('nf-datos').value,
+    citas: document.getElementById('nf-citas').value,
+    contactoPrensa: document.getElementById('nf-contacto').value,
+    materialesAdjuntos: document.getElementById('nf-material').value,
+    notaEjemplo: document.getElementById('nf-ejemplo').value,
+  };
+  if (id) await api(`/api/notas/${id}`, { method: 'PUT', body: JSON.stringify(body) });
+  else await api('/api/notas', { method: 'POST', body: JSON.stringify(body) });
+  closeModal();
+  renderPage('notas');
+}
+
+// ─── Nota Detail ─────────────────────────────────────────
+async function openNotaDetail(id) {
+  const nota = await api(`/api/notas/${id}`);
+  const el = document.getElementById('page-content');
+  el.innerHTML = `<div class="fade-in">
+    <button class="btn btn-outline mb-2" onclick="renderPage('notas')">← Volver a notas</button>
+    <div class="card">
+      <div class="flex flex-between flex-center mb-1">
+        <div class="flex gap-05 flex-center"><span class="badge badge-${nota.estado}">${formatEstado(nota.estado)}</span><span class="chip">${nota.proyecto}</span></div>
+        <div class="flex gap-05">
+          <button class="btn btn-sm btn-outline" onclick='openNotaForm(${JSON.stringify(nota).replace(/'/g,"\\'")})'>Editar</button>
+          ${nota.estado === 'borrador' || nota.estado === 'validada' ? `<button class="btn btn-sm btn-warning" onclick="generarLinkValidacion('${nota.id}')">Enviar a validación</button>` : ''}
+          ${nota.estado === 'validada' ? `<button class="btn btn-sm btn-success" onclick="openEnvioForm('${nota.id}')">Registrar envío</button>` : ''}
+          ${nota.estado === 'enviada' || nota.estado === 'validada' ? `<button class="btn btn-sm btn-primary" onclick="openPubForm('${nota.id}')">Registrar publicación</button>` : ''}
+          <button class="btn btn-sm btn-danger" onclick="deleteNota('${nota.id}')">Eliminar</button>
+        </div>
+      </div>
+      <h2 style="font-size:1.5rem;margin-bottom:.3rem">${nota.titular}</h2>
+      <p class="text-muted mb-2">${nota.subtitulo}</p>
+      <div style="white-space:pre-wrap;line-height:1.8;margin-bottom:1.5rem">${esc(nota.cuerpo)}</div>
+      ${nota.datosClaveRaw ? `<div class="alert alert-info"><strong>Datos clave:</strong> ${esc(nota.datosClaveRaw)}</div>` : ''}
+      ${nota.citas ? `<div class="alert alert-info"><strong>Citas:</strong> ${esc(nota.citas)}</div>` : ''}
+      ${nota.contactoPrensa ? `<p class="text-sm text-muted mt-1"><strong>Contacto prensa:</strong> ${esc(nota.contactoPrensa)}</p>` : ''}
+      ${nota.materialesAdjuntos ? `<p class="text-sm text-muted"><strong>Material adjunto:</strong> <a href="${esc(nota.materialesAdjuntos)}" target="_blank">${esc(nota.materialesAdjuntos)}</a></p>` : ''}
+      <p class="text-sm text-muted mt-1">Creada por ${nota.autorNombre} el ${formatDate(nota.createdAt)} · Última actualización: ${formatDate(nota.updatedAt)}</p>
+    </div>
+    <div class="grid grid-2">
+      <div class="card">
+        <div class="card-header"><h3>Validaciones</h3></div>
+        ${(nota.validaciones||[]).length === 0 ? '<p class="text-muted text-sm">Sin validaciones</p>' :
+          `<div class="timeline">${(nota.validaciones||[]).map(v => `<div class="timeline-item"><div class="content"><strong>${v.validadorNombre}</strong>: <span class="badge badge-${v.accion === 'aprobar' ? 'validada' : v.accion === 'rechazar' ? 'borrador' : 'en_validacion'}">${v.accion}</span></div>${v.comentario ? `<div class="text-sm">${esc(v.comentario)}</div>` : ''}<div class="date">${formatDate(v.fecha)}</div></div>`).join('')}</div>`}
+      </div>
+      <div class="card">
+        <div class="card-header"><h3>Publicaciones</h3></div>
+        ${(nota.publicaciones||[]).length === 0 ? '<p class="text-muted text-sm">Sin publicaciones registradas</p>' :
+          (nota.publicaciones||[]).map(p => `<div style="padding:.5rem 0;border-bottom:1px solid var(--border)"><strong>${p.medio}</strong><br><a href="${p.url}" target="_blank" class="text-sm">${p.url}</a><br><span class="text-muted text-sm">${formatDate(p.fecha)}</span></div>`).join('')}
+      </div>
+    </div>
+    ${(nota.envios||[]).length > 0 ? `<div class="card"><div class="card-header"><h3>Historial de envíos</h3></div>
+      ${nota.envios.map(e => `<div style="padding:.5rem 0;border-bottom:1px solid var(--border)"><span class="text-sm">${formatDate(e.fecha)} · Por ${e.enviadoPor} · Vía: ${e.via} · ${(e.mediosIds||[]).length} medios</span></div>`).join('')}
+    </div>` : ''}
+    <div class="card">
+      <div class="card-header"><h3>Buscar publicaciones en Google News</h3></div>
+      <div class="flex gap-1">
+        <input id="search-keywords" value="${esc(nota.titular.split(' ').slice(0, 5).join(' '))}" style="flex:1;padding:.5rem;border:2px solid var(--border);border-radius:8px">
+        <button class="btn btn-secondary" onclick="buscarPublicaciones()">Buscar</button>
+      </div>
+      <div id="search-results" class="mt-1"></div>
+    </div>
+  </div>`;
+}
+
+async function generarLinkValidacion(id) {
+  const data = await api(`/api/notas/${id}/validacion-link`, { method: 'POST' });
+  const fullUrl = window.location.origin + data.link;
+  showModal(`<h3>Link de validación generado</h3>
+    <p class="mb-1">Comparte este enlace con el validador externo:</p>
+    <div style="background:var(--bg);padding:1rem;border-radius:8px;word-break:break-all;font-family:monospace">${fullUrl}</div>
+    <button class="btn btn-primary mt-1" onclick="navigator.clipboard.writeText('${fullUrl}');this.textContent='¡Copiado!'">Copiar enlace</button>
+    <button class="btn btn-outline mt-1" onclick="closeModal()">Cerrar</button>
+  `);
+}
+
+async function openEnvioForm(notaId) {
+  if (!state.medios.length) state.medios = await api('/api/medios');
+  showModal(`<h3>Registrar envío de nota</h3>
+    <div class="form-group"><label>Seleccionar medios</label>
+      <div style="max-height:300px;overflow-y:auto;border:2px solid var(--border);border-radius:8px;padding:.5rem">
+        <div class="mb-05"><button class="btn btn-sm btn-outline" onclick="document.querySelectorAll('.medio-cb').forEach(c=>c.checked=true)">Seleccionar todos</button></div>
+        ${state.medios.map(m => `<label style="display:block;padding:.3rem"><input type="checkbox" class="medio-cb" value="${m.id}"> ${m.nombre} — ${m.medio} (${m.region})</label>`).join('')}
+      </div>
+    </div>
+    <button class="btn btn-success" onclick="saveEnvio('${notaId}')">Registrar envío</button>
+    <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+  `);
+}
+
+async function saveEnvio(notaId) {
+  const ids = [...document.querySelectorAll('.medio-cb:checked')].map(c => c.value);
+  if (ids.length === 0) return alert('Selecciona al menos un medio');
+  await api(`/api/notas/${notaId}/envios`, { method: 'POST', body: JSON.stringify({ mediosIds: ids, via: 'manual' }) });
+  closeModal();
+  openNotaDetail(notaId);
+}
+
+function openPubForm(notaId) {
+  showModal(`<h3>Registrar publicación</h3>
+    <div class="form-group"><label>Medio</label><input id="pub-medio" placeholder="Nombre del medio"></div>
+    <div class="form-group"><label>URL del artículo</label><input id="pub-url" placeholder="https://..."></div>
+    <button class="btn btn-success" onclick="savePub('${notaId}')">Registrar</button>
+    <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+  `);
+}
+
+async function savePub(notaId) {
+  await api(`/api/notas/${notaId}/publicaciones`, { method: 'POST', body: JSON.stringify({ medio: document.getElementById('pub-medio').value, url: document.getElementById('pub-url').value }) });
+  closeModal();
+  openNotaDetail(notaId);
+}
+
+async function deleteNota(id) {
+  if (!confirm('¿Eliminar esta nota de prensa?')) return;
+  await api(`/api/notas/${id}`, { method: 'DELETE' });
+  renderPage('notas');
+}
+
+async function buscarPublicaciones() {
+  const kw = document.getElementById('search-keywords').value;
+  const data = await api('/api/buscar-publicaciones', { method: 'POST', body: JSON.stringify({ keywords: kw }) });
+  document.getElementById('search-results').innerHTML = `<a href="${data.searchUrl}" target="_blank" class="btn btn-secondary btn-sm mt-1">Abrir búsqueda en Google News →</a><p class="text-muted text-sm mt-1">${data.message}</p>`;
+}
+
+// ─── Medios ──────────────────────────────────────────────
+async function renderMedios(el) {
+  state.medios = await api('/api/medios');
+  el.innerHTML = `<div class="fade-in">
+    <div class="flex flex-between flex-center mb-2">
+      <div class="flex gap-1 flex-center">
+        <div class="search-box"><input id="medios-search" placeholder="Buscar contactos..." oninput="filterMedios()" style="padding-left:2.5rem;width:250px"></div>
+        <select id="medios-filter-tematica" onchange="filterMedios()" style="padding:.5rem;border:2px solid var(--border);border-radius:8px">
+          <option value="">Todas las temáticas</option>
+          <option value="gaming">Gaming</option>
+          <option value="eventos">Eventos</option>
+          <option value="música">Música</option>
+          <option value="cultura">Cultura</option>
+          <option value="lifestyle">Lifestyle</option>
+          <option value="tecnología">Tecnología</option>
+        </select>
+        <select id="medios-filter-region" onchange="filterMedios()" style="padding:.5rem;border:2px solid var(--border);border-radius:8px">
+          <option value="">Todas las regiones</option>
+          <option value="Valencia">Valencia</option>
+          <option value="Comunitat Valenciana">Comunitat Valenciana</option>
+          <option value="Nacional">Nacional</option>
+          <option value="Internacional">Internacional</option>
+        </select>
+      </div>
+      <div class="flex gap-05">
+        <button class="btn btn-outline btn-sm" onclick="openImportCSV()">Importar CSV</button>
+        <button class="btn btn-outline btn-sm" onclick="exportCSV()">Exportar CSV</button>
+        <button class="btn btn-primary" onclick="openMedioForm()">+ Nuevo contacto</button>
+      </div>
+    </div>
+    <div class="card"><table><thead><tr><th>Nombre</th><th>Medio</th><th>Email</th><th>Temáticas</th><th>Región</th><th>Tasa pub.</th><th>Acciones</th></tr></thead><tbody id="medios-table"></tbody></table></div>
+  </div>`;
+  filterMedios();
+}
+
+function filterMedios() {
+  const search = (document.getElementById('medios-search')?.value || '').toLowerCase();
+  const tematica = document.getElementById('medios-filter-tematica')?.value || '';
+  const region = document.getElementById('medios-filter-region')?.value || '';
+  let filtered = state.medios;
+  if (search) filtered = filtered.filter(m => m.nombre.toLowerCase().includes(search) || m.medio.toLowerCase().includes(search) || m.email.toLowerCase().includes(search));
+  if (tematica) filtered = filtered.filter(m => m.tematicas && m.tematicas.includes(tematica));
+  if (region) filtered = filtered.filter(m => m.region === region);
+  const tbody = document.getElementById('medios-table');
+  if (!tbody) return;
+  tbody.innerHTML = filtered.map(m => `<tr>
+    <td><strong>${m.nombre}</strong><br><span class="text-muted text-sm">${m.cargo}</span></td>
+    <td>${m.medio}</td>
+    <td><a href="mailto:${m.email}">${m.email}</a></td>
+    <td>${(m.tematicas||[]).map(t => `<span class="chip chip-accent">${t}</span>`).join('')}</td>
+    <td>${m.region}</td>
+    <td><div class="progress-bar" style="width:80px"><div class="fill" style="width:${m.tasaPublicacion||0}%;background:${(m.tasaPublicacion||0)>60?'var(--success)':'var(--warning)'}"></div></div><span class="text-sm">${m.tasaPublicacion||0}%</span></td>
+    <td><button class="btn btn-sm btn-outline" onclick='openMedioForm(${JSON.stringify(m).replace(/'/g,"\\'")})'>Editar</button> <button class="btn btn-sm btn-danger" onclick="deleteMedio('${m.id}')">×</button></td>
+  </tr>`).join('');
+}
+
+function openMedioForm(m = null) {
+  const isEdit = !!m;
+  showModal(`<h3>${isEdit ? 'Editar' : 'Nuevo'} contacto de medio</h3>
+    <div class="grid grid-2">
+      <div class="form-group"><label>Nombre</label><input id="mf-nombre" value="${esc(m?.nombre)}"></div>
+      <div class="form-group"><label>Email</label><input id="mf-email" type="email" value="${esc(m?.email)}"></div>
+    </div>
+    <div class="grid grid-2">
+      <div class="form-group"><label>Medio</label><input id="mf-medio" value="${esc(m?.medio)}"></div>
+      <div class="form-group"><label>Cargo</label><input id="mf-cargo" value="${esc(m?.cargo)}"></div>
+    </div>
+    <div class="grid grid-2">
+      <div class="form-group"><label>Región</label>
+        <select id="mf-region"><option value="Valencia" ${m?.region==='Valencia'?'selected':''}>Valencia</option><option value="Comunitat Valenciana" ${m?.region==='Comunitat Valenciana'?'selected':''}>Comunitat Valenciana</option><option value="Nacional" ${m?.region==='Nacional'?'selected':''}>Nacional</option><option value="Internacional" ${m?.region==='Internacional'?'selected':''}>Internacional</option></select>
+      </div>
+      <div class="form-group"><label>Teléfono</label><input id="mf-tel" value="${esc(m?.telefono)}"></div>
+    </div>
+    <div class="form-group"><label>Temáticas</label>
+      <div class="flex gap-05" style="flex-wrap:wrap">
+        ${['gaming','eventos','música','cultura','lifestyle','tecnología'].map(t => `<label style="display:flex;align-items:center;gap:.3rem"><input type="checkbox" class="tem-cb" value="${t}" ${(m?.tematicas||[]).includes(t)?'checked':''}> ${t}</label>`).join('')}
+      </div>
+    </div>
+    <div class="form-group"><label>Notas</label><textarea id="mf-notas" rows="2">${esc(m?.notas)}</textarea></div>
+    <button class="btn btn-primary" onclick="saveMedio('${m?.id||''}')">${isEdit ? 'Guardar' : 'Crear'}</button>
+    <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+  `);
+}
+
+async function saveMedio(id) {
+  const body = {
+    nombre: document.getElementById('mf-nombre').value,
+    email: document.getElementById('mf-email').value,
+    medio: document.getElementById('mf-medio').value,
+    cargo: document.getElementById('mf-cargo').value,
+    region: document.getElementById('mf-region').value,
+    telefono: document.getElementById('mf-tel').value,
+    tematicas: [...document.querySelectorAll('.tem-cb:checked')].map(c => c.value),
+    notas: document.getElementById('mf-notas').value,
+  };
+  if (id) await api(`/api/medios/${id}`, { method: 'PUT', body: JSON.stringify(body) });
+  else await api('/api/medios', { method: 'POST', body: JSON.stringify(body) });
+  closeModal();
+  renderPage('medios');
+}
+
+async function deleteMedio(id) {
+  if (!confirm('¿Eliminar este contacto?')) return;
+  await api(`/api/medios/${id}`, { method: 'DELETE' });
+  renderPage('medios');
+}
+
+function openImportCSV() {
+  showModal(`<h3>Importar contactos desde CSV</h3>
+    <div class="alert alert-info">Formato esperado: nombre, email, medio, cargo, tematicas (separadas por ;), region, telefono</div>
+    <div class="form-group"><label>Pega el contenido CSV</label><textarea id="import-csv" rows="10" placeholder="nombre,email,medio,cargo,tematicas,region,telefono&#10;María García,maria@medio.com,El Medio,Redactora,cultura;eventos,Nacional,612345678"></textarea></div>
+    <button class="btn btn-primary" onclick="doImportCSV()">Importar</button>
+    <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+  `);
+}
+
+async function doImportCSV() {
+  const csv = document.getElementById('import-csv').value;
+  const data = await api('/api/medios/importar-csv', { method: 'POST', body: JSON.stringify({ csv }) });
+  alert(`Importados ${data.imported} contactos. Total: ${data.total}`);
+  closeModal();
+  renderPage('medios');
+}
+
+async function exportCSV() {
+  const tematica = document.getElementById('medios-filter-tematica')?.value || '';
+  const region = document.getElementById('medios-filter-region')?.value || '';
+  const body = {};
+  if (tematica) body.tematicas = [tematica];
+  if (region) body.region = region;
+  const res = await fetch(API + '/api/medios/exportar-csv', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + state.token }, body: JSON.stringify(body) });
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'medios_encom.csv'; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ─── Plantillas ──────────────────────────────────────────
+async function renderPlantillas(el) {
+  state.plantillas = await api('/api/plantillas');
+  el.innerHTML = `<div class="fade-in">
+    <div class="flex flex-between flex-center mb-2">
+      <p class="text-muted">Plantillas reutilizables para agilizar la creación de notas</p>
+      <button class="btn btn-primary" onclick="openPlantillaForm()">+ Nueva plantilla</button>
+    </div>
+    ${state.plantillas.length === 0 ? '<div class="empty-state"><div class="icon">📋</div><p>No hay plantillas</p></div>' :
+      state.plantillas.map(p => `<div class="card">
+        <div class="flex flex-between flex-center">
+          <div><h3>${p.nombre}</h3><span class="chip">${p.tipo}</span></div>
+          <div><button class="btn btn-sm btn-primary" onclick='usePlantilla(${JSON.stringify(p.contenido).replace(/'/g,"\\'")})'>Usar</button> <button class="btn btn-sm btn-danger" onclick="deletePlantilla('${p.id}')">Eliminar</button></div>
+        </div>
+        <div class="text-sm text-muted mt-1" style="white-space:pre-wrap">${esc(p.contenido.cuerpo||'').substring(0, 200)}...</div>
+      </div>`).join('')}
+  </div>`;
+}
+
+function usePlantilla(contenido) {
+  openNotaForm({ ...contenido, proyecto: contenido.tipo || 'Encom' });
+}
+
+function openPlantillaForm() {
+  showModal(`<h3>Nueva plantilla</h3>
+    <div class="form-group"><label>Nombre</label><input id="pf-nombre" placeholder="Ej: Anuncio de festival"></div>
+    <div class="form-group"><label>Tipo de evento</label>
+      <select id="pf-tipo"><option>OWN Valencia</option><option>Valencia Game City</option><option>IDASFEST</option><option>Encom</option><option>General</option></select>
+    </div>
+    <div class="form-group"><label>Titular (plantilla)</label><input id="pf-titular" placeholder="[NOMBRE] [AÑO]: [gancho]"></div>
+    <div class="form-group"><label>Subtítulo (plantilla)</label><input id="pf-subtitulo"></div>
+    <div class="form-group"><label>Cuerpo (estructura)</label><textarea id="pf-cuerpo" rows="8" placeholder="[Párrafo 1: Qué y cuándo]&#10;&#10;[Párrafo 2: Detalles]"></textarea></div>
+    <div class="form-group"><label>Contacto prensa</label><input id="pf-contacto" value="Departamento de Comunicación Encom — prensa@encom.es — 960 000 000"></div>
+    <button class="btn btn-primary" onclick="savePlantilla()">Crear plantilla</button>
+    <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+  `);
+}
+
+async function savePlantilla() {
+  await api('/api/plantillas', { method: 'POST', body: JSON.stringify({
+    nombre: document.getElementById('pf-nombre').value,
+    tipo: document.getElementById('pf-tipo').value,
+    contenido: {
+      titular: document.getElementById('pf-titular').value,
+      subtitulo: document.getElementById('pf-subtitulo').value,
+      cuerpo: document.getElementById('pf-cuerpo').value,
+      contactoPrensa: document.getElementById('pf-contacto').value,
+    }
+  }) });
+  closeModal();
+  renderPage('plantillas');
+}
+
+async function deletePlantilla(id) {
+  if (!confirm('¿Eliminar esta plantilla?')) return;
+  await api(`/api/plantillas/${id}`, { method: 'DELETE' });
+  renderPage('plantillas');
+}
+
+// ─── Reporting ───────────────────────────────────────────
+async function renderReporting(el) {
+  const report = await api('/api/reporte-semanal');
+  const dash = await api('/api/dashboard');
+  el.innerHTML = `<div class="fade-in">
+    <div class="card">
+      <div class="card-header"><h3>Reporte semanal</h3><span class="text-muted text-sm">${formatDate(report.periodo.desde)} — ${formatDate(report.periodo.hasta)}</span></div>
+      <div class="grid grid-3">
+        <div class="stat-card"><div class="number">${report.notasActualizadas}</div><div class="label">Notas actualizadas</div></div>
+        <div class="stat-card"><div class="number">${report.notasEnviadas}</div><div class="label">Notas enviadas</div></div>
+        <div class="stat-card"><div class="number">${report.publicacionesConseguidas}</div><div class="label">Publicaciones nuevas</div></div>
+      </div>
+      ${report.detalle.length > 0 ? `<h4 class="mt-2 mb-1">Publicaciones de la semana</h4><table><thead><tr><th>Nota</th><th>Medio</th><th>URL</th></tr></thead><tbody>${report.detalle.map(d => `<tr><td>${d.nota}</td><td>${d.medio}</td><td><a href="${d.url}" target="_blank">${d.url}</a></td></tr>`).join('')}</tbody></table>` : ''}
+    </div>
+    <div class="card">
+      <div class="card-header"><h3>💡 Sugerencias de mejora</h3></div>
+      ${report.sugerencias.map(s => `<div class="alert alert-info">${s}</div>`).join('')}
+    </div>
+    <div class="card">
+      <div class="card-header"><h3>Evolución general</h3></div>
+      <table><thead><tr><th>Mes</th><th>Notas creadas</th><th>Publicaciones</th></tr></thead><tbody>
+      ${dash.evolucion.map(m => `<tr><td>${m.mes}</td><td>${m.notas}</td><td>${m.publicaciones}</td></tr>`).join('')}
+      </tbody></table>
+    </div>
+  </div>`;
+}
+
+// ─── Mailchimp ───────────────────────────────────────────
+async function renderMailchimp(el) {
+  let config = {};
+  try { config = await api('/api/mailchimp/config'); } catch {}
+  el.innerHTML = `<div class="fade-in">
+    <div class="card">
+      <div class="card-header"><h3>Estado de la integración</h3></div>
+      <div class="alert ${config.configured ? 'alert-success' : 'alert-warning'}">${config.configured ? 'Mailchimp configurado correctamente (' + config.serverPrefix + ')' : 'Mailchimp no configurado. Introduce tu API Key en Configuración.'}</div>
+    </div>
+    <div class="grid grid-2">
+      <div class="card">
+        <div class="card-header"><h3>Exportar contactos</h3></div>
+        <p class="text-sm text-muted mb-1">Exporta la base de medios filtrada en formato CSV compatible con Mailchimp</p>
+        <div class="form-group"><label>Temática</label>
+          <select id="mc-tematica"><option value="">Todas</option><option value="gaming">Gaming</option><option value="eventos">Eventos</option><option value="música">Música</option><option value="cultura">Cultura</option><option value="lifestyle">Lifestyle</option><option value="tecnología">Tecnología</option></select>
+        </div>
+        <div class="form-group"><label>Región</label>
+          <select id="mc-region"><option value="">Todas</option><option value="Valencia">Valencia</option><option value="Comunitat Valenciana">Comunitat Valenciana</option><option value="Nacional">Nacional</option><option value="Internacional">Internacional</option></select>
+        </div>
+        <button class="btn btn-primary" onclick="exportMailchimpCSV()">Descargar CSV para Mailchimp</button>
+      </div>
+      <div class="card">
+        <div class="card-header"><h3>Crear lista en Mailchimp</h3></div>
+        <p class="text-sm text-muted mb-1">Crea una nueva lista/audiencia directamente vía API</p>
+        <div class="form-group"><label>Nombre de la lista</label><input id="mc-lista-nombre" placeholder="Ej: Medios OWN 2026"></div>
+        <button class="btn btn-primary" onclick="crearListaMailchimp()" ${!config.configured ? 'disabled' : ''}>Crear lista</button>
+        <div id="mc-result" class="mt-1"></div>
+      </div>
+    </div>
+  </div>`;
+}
+
+async function exportMailchimpCSV() {
+  const tematica = document.getElementById('mc-tematica')?.value;
+  const region = document.getElementById('mc-region')?.value;
+  const body = {};
+  if (tematica) body.tematicas = [tematica];
+  if (region) body.region = region;
+  const res = await fetch(API + '/api/medios/exportar-csv', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + state.token }, body: JSON.stringify(body) });
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'mailchimp_import.csv'; a.click();
+}
+
+async function crearListaMailchimp() {
+  const nombre = document.getElementById('mc-lista-nombre').value;
+  try {
+    const data = await api('/api/mailchimp/crear-lista', { method: 'POST', body: JSON.stringify({ nombre }) });
+    document.getElementById('mc-result').innerHTML = `<div class="alert alert-success">Lista creada: ${data.name || nombre} (ID: ${data.id || 'N/A'})</div>`;
+  } catch (err) {
+    document.getElementById('mc-result').innerHTML = `<div class="alert alert-warning">${err.message}</div>`;
+  }
+}
+
+// ─── Usuarios ────────────────────────────────────────────
+async function renderUsuarios(el) {
+  const users = await api('/api/users');
+  el.innerHTML = `<div class="fade-in">
+    <div class="flex flex-between flex-center mb-2">
+      <p class="text-muted">Gestión del equipo de comunicación</p>
+      <button class="btn btn-primary" onclick="openUserForm()">+ Nuevo usuario</button>
+    </div>
+    <div class="card"><table><thead><tr><th>Nombre</th><th>Email</th><th>Rol</th><th>Creado</th><th>Acciones</th></tr></thead><tbody>
+    ${users.map(u => `<tr><td><strong>${u.name}</strong></td><td>${u.email}</td><td><span class="badge ${u.role==='admin'?'badge-publicada':'badge-validada'}">${u.role}</span></td><td class="text-sm">${formatDate(u.createdAt)}</td><td>${u.role !== 'admin' ? `<button class="btn btn-sm btn-danger" onclick="deleteUser('${u.id}')">Eliminar</button>` : ''}</td></tr>`).join('')}
+    </tbody></table></div>
+  </div>`;
+}
+
+function openUserForm() {
+  showModal(`<h3>Nuevo usuario</h3>
+    <div class="form-group"><label>Nombre</label><input id="uf-name"></div>
+    <div class="form-group"><label>Email</label><input id="uf-email" type="email"></div>
+    <div class="form-group"><label>Contraseña</label><input id="uf-pw" type="password"></div>
+    <div class="form-group"><label>Rol</label><select id="uf-role"><option value="editor">Editor</option><option value="admin">Admin</option></select></div>
+    <button class="btn btn-primary" onclick="saveUser()">Crear</button>
+    <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+  `);
+}
+
+async function saveUser() {
+  await api('/api/users', { method: 'POST', body: JSON.stringify({ name: document.getElementById('uf-name').value, email: document.getElementById('uf-email').value, password: document.getElementById('uf-pw').value, role: document.getElementById('uf-role').value }) });
+  closeModal();
+  renderPage('usuarios');
+}
+
+async function deleteUser(id) {
+  if (!confirm('¿Eliminar este usuario?')) return;
+  await api(`/api/users/${id}`, { method: 'DELETE' });
+  renderPage('usuarios');
+}
+
+// ─── Settings ────────────────────────────────────────────
+async function renderSettings(el) {
+  el.innerHTML = `<div class="fade-in">
+    <div class="card">
+      <div class="card-header"><h3>Configuración de Mailchimp</h3></div>
+      <div class="form-group"><label>API Key</label><input id="set-mc-key" placeholder="xxxxxxxxxx-usX"></div>
+      <div class="form-group"><label>Server Prefix (ej: us1, us2)</label><input id="set-mc-prefix" placeholder="us1"></div>
+      <div class="form-group"><label>From Name</label><input id="set-mc-name" value="Encom Comunicación"></div>
+      <div class="form-group"><label>From Email</label><input id="set-mc-email" value="prensa@encom.es"></div>
+      <button class="btn btn-primary" onclick="saveMailchimpConfig()">Guardar configuración</button>
+      <div id="settings-result" class="mt-1"></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><h3>Información del sistema</h3></div>
+      <p class="text-sm">EncomPR v1.0 — Sistema de Gestión de Notas de Prensa</p>
+      <p class="text-sm text-muted">Encom: OWN Valencia · Valencia Game City · IDASFEST</p>
+    </div>
+  </div>`;
+}
+
+async function saveMailchimpConfig() {
+  try {
+    await api('/api/mailchimp/config', { method: 'POST', body: JSON.stringify({
+      apiKey: document.getElementById('set-mc-key').value,
+      serverPrefix: document.getElementById('set-mc-prefix').value,
+      defaultFromName: document.getElementById('set-mc-name').value,
+      defaultFromEmail: document.getElementById('set-mc-email').value,
+    }) });
+    document.getElementById('settings-result').innerHTML = '<div class="alert alert-success">Configuración guardada</div>';
+  } catch (err) {
+    document.getElementById('settings-result').innerHTML = `<div class="alert alert-warning">${err.message}</div>`;
+  }
+}
+
+// ─── Modal ───────────────────────────────────────────────
+function showModal(html) {
+  document.getElementById('modal-container').innerHTML = `<div class="modal-overlay" onclick="if(event.target===this)closeModal()"><div class="modal fade-in">${html}</div></div>`;
+}
+function closeModal() {
+  document.getElementById('modal-container').innerHTML = '';
+}
+
+// ─── Utils ───────────────────────────────────────────────
+function esc(s) { return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ─── External Validation Page ────────────────────────────
+async function handleValidation() {
+  const path = window.location.pathname;
+  if (!path.startsWith('/validar/')) return false;
+  const token = path.split('/validar/')[1];
+  if (!token) return false;
+  document.getElementById('app-login').style.display = 'none';
+  document.getElementById('app-validar').style.display = 'block';
+  try {
+    const data = await fetch(`/api/validar/${token}`).then(r => r.json());
+    if (data.error) { document.getElementById('validar-content').innerHTML = `<div class="alert alert-warning">${data.error}</div>`; return true; }
+    const n = data.nota;
+    document.getElementById('validar-content').innerHTML = `
+      <div class="flex gap-05 flex-center mb-1"><span class="badge badge-${n.estado}">${formatEstado(n.estado)}</span><span class="chip">${n.proyecto}</span></div>
+      <h2 style="margin-bottom:.3rem">${n.titular}</h2>
+      <p class="text-muted mb-2">${n.subtitulo}</p>
+      <div style="white-space:pre-wrap;line-height:1.8;margin-bottom:1.5rem;background:var(--bg);padding:1.5rem;border-radius:8px">${esc(n.cuerpo)}</div>
+      ${n.datosClaveRaw ? `<div class="alert alert-info"><strong>Datos clave:</strong> ${esc(n.datosClaveRaw)}</div>` : ''}
+      ${n.citas ? `<div class="alert alert-info"><strong>Citas:</strong> ${esc(n.citas)}</div>` : ''}
+      ${n.contactoPrensa ? `<p class="text-sm mt-1"><strong>Contacto prensa:</strong> ${esc(n.contactoPrensa)}</p>` : ''}
+      ${n.materialesAdjuntos ? `<p class="text-sm"><strong>Material:</strong> <a href="${esc(n.materialesAdjuntos)}" target="_blank">Ver material adjunto</a></p>` : ''}
+      <hr style="margin:2rem 0;border:none;border-top:2px solid var(--border)">
+      <h3 style="margin-bottom:1rem">Tu validación</h3>
+      <div class="form-group"><label>Tu nombre</label><input id="val-nombre" placeholder="Nombre del validador"></div>
+      <div class="form-group"><label>Comentarios</label><textarea id="val-comentario" rows="4" placeholder="Observaciones, cambios solicitados..."></textarea></div>
+      <div class="flex gap-1">
+        <button class="btn btn-success" onclick="submitValidation('${token}','aprobar')">✓ Aprobar</button>
+        <button class="btn btn-warning" onclick="submitValidation('${token}','cambios')">Pedir cambios</button>
+        <button class="btn btn-danger" onclick="submitValidation('${token}','rechazar')">✗ Rechazar</button>
+      </div>
+      <div id="val-result" class="mt-1"></div>
+      ${(n.validaciones||[]).length > 0 ? `<h4 class="mt-2 mb-1">Historial de validaciones</h4><div class="timeline">${n.validaciones.map(v => `<div class="timeline-item"><div class="content"><strong>${v.validadorNombre}</strong>: ${v.accion}</div>${v.comentario?`<div class="text-sm">${esc(v.comentario)}</div>`:''}<div class="date">${formatDate(v.fecha)}</div></div>`).join('')}</div>` : ''}
+    `;
+  } catch (err) {
+    document.getElementById('validar-content').innerHTML = `<div class="alert alert-warning">Error: ${err.message}</div>`;
+  }
+  return true;
+}
+
+async function submitValidation(token, accion) {
+  try {
+    const res = await fetch(`/api/validar/${token}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accion, nombre: document.getElementById('val-nombre').value, comentario: document.getElementById('val-comentario').value })
+    }).then(r => r.json());
+    const msgs = { aprobar: 'Nota aprobada correctamente', cambios: 'Cambios solicitados registrados', rechazar: 'Nota rechazada' };
+    document.getElementById('val-result').innerHTML = `<div class="alert alert-success">${msgs[accion] || 'Validación registrada'}. Estado: ${formatEstado(res.estado)}</div>`;
+  } catch (err) {
+    document.getElementById('val-result').innerHTML = `<div class="alert alert-warning">${err.message}</div>`;
+  }
+}
+
+// ─── Init ────────────────────────────────────────────────
+(async () => {
+  // Check if this is a validation page
+  if (await handleValidation()) return;
+  // Normal app flow
+  if (await checkAuth()) showApp();
+})();
+</script>
+</body>
+</html>
