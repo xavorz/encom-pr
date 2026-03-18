@@ -1,0 +1,26 @@
+[
+  {
+    "id": "e1e545c3-dfce-47ea-a823-c5886fa7ff37",
+    "type": "validacion",
+    "notaId": "6ce05eff-781b-4fbf-bb63-f347da97fa15",
+    "message": "Nota OWN Valencia 2026 aprobada por Marketing OWN",
+    "read": true,
+    "createdAt": "2026-03-10T10:31:48.041Z"
+  },
+  {
+    "id": "ea24e9ba-0d0a-4e41-9e75-f9ee1bb0279d",
+    "type": "publicacion",
+    "notaId": "6ce05eff-781b-4fbf-bb63-f347da97fa15",
+    "message": "Nueva publicaciÃ³n en Levante-EMV de la nota OWN Valencia",
+    "read": false,
+    "createdAt": "2026-03-13T10:31:48.041Z"
+  },
+  {
+    "id": "d9b5ad97-a161-46ba-bf3f-125ca318759f",
+    "type": "validacion",
+    "notaId": "aa5c5867-8fca-42a9-83ad-d6f11be894ab",
+    "message": "Nota VGC 2026 aprobada por Equipo VGC",
+    "read": true,
+    "createdAt": "2026-03-06T10:31:48.041Z"
+  }
+]
