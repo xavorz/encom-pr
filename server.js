@@ -870,125 +870,73 @@ route('GET', '/api/notas/:id/exportar-docx', async (req, res, params) => {
 
   try {
     const docxLib = require('docx');
-    const { Document, Packer, Paragraph, TextRun, AlignmentType, BorderStyle, Table, TableRow, TableCell, WidthType, ShadingType } = docxLib;
+    const { Document, Packer, Paragraph, TextRun, AlignmentType, BorderStyle, HeadingLevel } = docxLib;
 
-    // Parse body paragraphs
     const bodyParagraphs = (nota.cuerpo || '').split(/\n\n+/).filter(p => p.trim());
-
+    const fecha = new Date(nota.updatedAt || nota.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
     const children = [];
 
-    // Header: "NOTA DE PRENSA" label
-    children.push(new Paragraph({
-      alignment: AlignmentType.CENTER,
-      spacing: { after: 100 },
-      children: [new TextRun({ text: 'NOTA DE PRENSA', font: 'Arial', size: 20, color: '888888', bold: true, allCaps: true })]
-    }));
-
-    // Project chip
+    // ── HEADER ──
+    children.push(new Paragraph({ alignment: AlignmentType.RIGHT, spacing: { after: 80 },
+      children: [new TextRun({ text: 'ENCOM', font: 'Arial', size: 28, bold: true, color: '1a56db' })] }));
     if (nota.proyecto) {
-      children.push(new Paragraph({
-        alignment: AlignmentType.CENTER,
-        spacing: { after: 300 },
-        children: [new TextRun({ text: nota.proyecto.toUpperCase(), font: 'Arial', size: 18, color: '1a56db' })]
-      }));
+      children.push(new Paragraph({ alignment: AlignmentType.RIGHT, spacing: { after: 200 },
+        children: [new TextRun({ text: nota.proyecto, font: 'Arial', size: 20, color: '666666' })] }));
     }
 
-    // Titular
-    children.push(new Paragraph({
-      alignment: AlignmentType.LEFT,
-      spacing: { after: 200 },
-      children: [new TextRun({ text: nota.titular || 'Sin titular', font: 'Arial', size: 36, bold: true, color: '1a1a1a' })]
-    }));
+    // Separator
+    children.push(new Paragraph({ spacing: { after: 400 },
+      border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: '1a56db' } }, children: [] }));
 
-    // Subtitulo
+    // Label + Date
+    children.push(new Paragraph({ spacing: { after: 80 },
+      children: [new TextRun({ text: 'NOTA DE PRENSA', font: 'Arial', size: 18, bold: true, color: '999999', allCaps: true })] }));
+    children.push(new Paragraph({ spacing: { after: 400 },
+      children: [new TextRun({ text: `Valencia, ${fecha}`, font: 'Arial', size: 20, color: '999999' })] }));
+
+    // ── TITULAR ──
+    children.push(new Paragraph({ spacing: { after: 200, line: 300 },
+      children: [new TextRun({ text: nota.titular || 'Sin titular', font: 'Georgia', size: 40, bold: true, color: '111111' })] }));
+
+    // ── SUBTITULO ──
     if (nota.subtitulo) {
-      children.push(new Paragraph({
-        alignment: AlignmentType.LEFT,
-        spacing: { after: 300 },
-        children: [new TextRun({ text: nota.subtitulo, font: 'Arial', size: 26, color: '444444', italics: true })]
-      }));
+      children.push(new Paragraph({ spacing: { after: 400, line: 300 },
+        children: [new TextRun({ text: nota.subtitulo, font: 'Georgia', size: 26, color: '444444' })] }));
     }
 
-    // Separator line
-    children.push(new Paragraph({
-      spacing: { after: 300 },
-      border: { bottom: { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' } },
-      children: []
-    }));
+    // Thin separator
+    children.push(new Paragraph({ spacing: { after: 300 },
+      border: { bottom: { style: BorderStyle.SINGLE, size: 1, color: 'DDDDDD' } }, children: [] }));
 
-    // Date
-    children.push(new Paragraph({
-      spacing: { after: 300 },
-      children: [new TextRun({ text: `Valencia, ${new Date(nota.updatedAt || nota.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}`, font: 'Arial', size: 22, color: '666666', italics: true })]
-    }));
-
-    // Body paragraphs
+    // ── CUERPO ──
     for (const para of bodyParagraphs) {
-      children.push(new Paragraph({
-        spacing: { after: 200, line: 340 },
-        children: [new TextRun({ text: para.trim(), font: 'Arial', size: 24, color: '333333' })]
-      }));
+      children.push(new Paragraph({ spacing: { after: 240, line: 360 },
+        children: [new TextRun({ text: para.trim(), font: 'Arial', size: 22, color: '222222' })] }));
     }
 
-    // Datos clave box
-    if (nota.datosClaveRaw) {
-      children.push(new Paragraph({ spacing: { before: 300, after: 100 }, children: [] }));
-      const border = { style: BorderStyle.SINGLE, size: 1, color: '1a56db' };
-      children.push(new Table({
-        width: { size: 9026, type: WidthType.DXA },
-        rows: [new TableRow({
-          children: [new TableCell({
-            borders: { top: border, bottom: border, left: border, right: border },
-            shading: { fill: 'EEF2FF', type: ShadingType.CLEAR },
-            margins: { top: 120, bottom: 120, left: 200, right: 200 },
-            width: { size: 9026, type: WidthType.DXA },
-            children: [
-              new Paragraph({ children: [new TextRun({ text: 'DATOS CLAVE', font: 'Arial', size: 20, bold: true, color: '1a56db' })] }),
-              new Paragraph({ spacing: { before: 80 }, children: [new TextRun({ text: nota.datosClaveRaw, font: 'Arial', size: 22, color: '333333' })] })
-            ]
-          })]
-        })]
-      }));
-    }
-
-    // Contact footer
-    children.push(new Paragraph({ spacing: { before: 400 }, border: { bottom: { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' } }, children: [] }));
-    children.push(new Paragraph({
-      spacing: { before: 200, after: 100 },
-      children: [new TextRun({ text: 'CONTACTO DE PRENSA', font: 'Arial', size: 18, bold: true, color: '888888' })]
-    }));
-    children.push(new Paragraph({
-      children: [new TextRun({ text: nota.contactoPrensa || 'Departamento de Comunicaci\u00f3n Encom \u2014 prensa@encom.es', font: 'Arial', size: 22, color: '333333' })]
-    }));
-
-    // Materials
+    // ── PIE: CONTACTO ──
+    children.push(new Paragraph({ spacing: { before: 500 },
+      border: { top: { style: BorderStyle.SINGLE, size: 6, color: '1a56db' } }, children: [] }));
+    children.push(new Paragraph({ spacing: { before: 200, after: 80 },
+      children: [new TextRun({ text: 'Para m\u00e1s informaci\u00f3n:', font: 'Arial', size: 18, bold: true, color: '1a56db' })] }));
+    children.push(new Paragraph({ spacing: { after: 40, line: 300 },
+      children: [new TextRun({ text: nota.contactoPrensa || 'Departamento de Comunicaci\u00f3n Encom \u2014 prensa@encom.es \u2014 960 000 000', font: 'Arial', size: 20, color: '333333' })] }));
     if (nota.materialesAdjuntos) {
-      children.push(new Paragraph({
-        spacing: { before: 200 },
-        children: [
-          new TextRun({ text: 'Materiales: ', font: 'Arial', size: 20, bold: true, color: '888888' }),
-          new TextRun({ text: nota.materialesAdjuntos, font: 'Arial', size: 20, color: '1a56db' })
-        ]
-      }));
+      children.push(new Paragraph({ spacing: { after: 40 },
+        children: [new TextRun({ text: 'Materiales de prensa: ', font: 'Arial', size: 18, bold: true, color: '666666' }),
+          new TextRun({ text: nota.materialesAdjuntos, font: 'Arial', size: 18, color: '1a56db' })] }));
     }
 
     const doc = new Document({
-      styles: {
-        default: { document: { run: { font: 'Arial', size: 24 } } }
-      },
+      styles: { default: { document: { run: { font: 'Arial', size: 22 } } } },
       sections: [{
-        properties: {
-          page: {
-            size: { width: 11906, height: 16838 },
-            margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 }
-          }
-        },
+        properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 1800, right: 1600, bottom: 1440, left: 1600 } } },
         children
       }]
     });
 
     const buffer = await Packer.toBuffer(doc);
-    const filename = `nota_${(nota.proyecto || 'encom').replace(/\s+/g, '_').toLowerCase()}_${Date.now()}.docx`;
+    const filename = `NP_${(nota.proyecto || 'Encom').replace(/\s+/g, '_')}_${fecha.replace(/\s+/g, '_')}.docx`;
     cors(res);
     res.writeHead(200, {
       'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -999,6 +947,62 @@ route('GET', '/api/notas/:id/exportar-docx', async (req, res, params) => {
   } catch (e) {
     error(res, 'Error generando docx: ' + e.message, 500);
   }
+});
+
+// ── EXPORTAR NOTA COMO PDF (HTML para imprimir) ──
+route('GET', '/api/notas/:id/exportar-pdf', async (req, res, params) => {
+  const user = requireAuth(req, res);
+  if (!user) return;
+  const notas = readJSON('notas.json');
+  const nota = notas.find(n => n.id === params.id);
+  if (!nota) return error(res, 'Nota no encontrada', 404);
+
+  const fecha = new Date(nota.updatedAt || nota.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+  const bodyHtml = (nota.cuerpo || '').split(/\n\n+/).filter(p => p.trim()).map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
+
+  const html = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Nota de prensa - ${(nota.titular || 'Encom').replace(/"/g, '')}</title>
+<style>
+@page { size: A4; margin: 2.5cm 2cm; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: Arial, Helvetica, sans-serif; color: #222; line-height: 1.6; max-width: 700px; margin: 0 auto; padding: 40px 20px; }
+.header { text-align: right; margin-bottom: 8px; }
+.header .brand { font-size: 18px; font-weight: 700; color: #1a56db; }
+.header .project { font-size: 12px; color: #666; }
+.blue-line { border: none; border-top: 3px solid #1a56db; margin: 16px 0 24px 0; }
+.meta { font-size: 10px; color: #999; text-transform: uppercase; font-weight: 700; letter-spacing: 1px; }
+.date { font-size: 11px; color: #999; margin-bottom: 24px; }
+h1 { font-family: Georgia, 'Times New Roman', serif; font-size: 26px; color: #111; line-height: 1.25; margin-bottom: 10px; font-weight: 700; }
+.subtitle { font-family: Georgia, serif; font-size: 15px; color: #444; line-height: 1.4; margin-bottom: 20px; }
+.thin-line { border: none; border-top: 1px solid #ddd; margin: 16px 0; }
+.body p { font-size: 12px; color: #222; line-height: 1.7; margin-bottom: 14px; text-align: justify; }
+.footer { margin-top: 32px; border-top: 3px solid #1a56db; padding-top: 16px; }
+.footer-label { font-size: 10px; font-weight: 700; color: #1a56db; margin-bottom: 4px; }
+.footer-text { font-size: 11px; color: #333; line-height: 1.5; }
+.footer-materials { font-size: 10px; color: #666; margin-top: 8px; }
+.footer-materials a { color: #1a56db; }
+@media print { body { padding: 0; max-width: none; } .no-print { display: none; } }
+</style></head><body>
+<div class="no-print" style="background:#1a56db;color:white;padding:12px 20px;margin:-40px -20px 30px;text-align:center;font-size:14px;border-radius:0 0 8px 8px">
+  Para guardar como PDF: <strong>Ctrl+P</strong> (o Cmd+P) &rarr; Destino: <strong>Guardar como PDF</strong></div>
+<div class="header"><div class="brand">ENCOM</div>${nota.proyecto ? `<div class="project">${nota.proyecto}</div>` : ''}</div>
+<hr class="blue-line">
+<div class="meta">NOTA DE PRENSA</div>
+<div class="date">Valencia, ${fecha}</div>
+<h1>${nota.titular || 'Sin titular'}</h1>
+${nota.subtitulo ? `<div class="subtitle">${nota.subtitulo}</div>` : ''}
+<hr class="thin-line">
+<div class="body">${bodyHtml}</div>
+<div class="footer">
+  <div class="footer-label">Para m\u00e1s informaci\u00f3n:</div>
+  <div class="footer-text">${nota.contactoPrensa || 'Departamento de Comunicaci\u00f3n Encom \u2014 prensa@encom.es \u2014 960 000 000'}</div>
+  ${nota.materialesAdjuntos ? `<div class="footer-materials">Materiales: <a href="${nota.materialesAdjuntos}">${nota.materialesAdjuntos}</a></div>` : ''}
+</div>
+<script>window.onload = function() { setTimeout(function() { window.print(); }, 500); }</script>
+</body></html>`;
+
+  cors(res);
+  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+  res.end(html);
 });
 
 // ── NOTIFICATIONS ──

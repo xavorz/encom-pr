@@ -647,6 +647,11 @@ function exportarDocx(notaId) {
   window.open(`/api/notas/${notaId}/exportar-docx?_token=${token}`, '_blank');
 }
 
+function exportarPdf(notaId) {
+  const token = localStorage.getItem('encompr_token');
+  window.open(`/api/notas/${notaId}/exportar-pdf?_token=${token}`, '_blank');
+}
+
 async function saveNota(id) {
   const body = {
     proyecto: document.getElementById('nf-proyecto').value,
@@ -684,7 +689,8 @@ async function openNotaDetail(id) {
           ${nota.estado === 'validada' ? `<button class="btn btn-sm btn-success" onclick="openEnvioForm('${nota.id}')">Registrar envío</button>` : ''}
           ${nota.estado === 'enviada' || nota.estado === 'validada' ? `<button class="btn btn-sm btn-primary" onclick="openPubForm('${nota.id}')">Registrar publicación</button>` : ''}
           <button class="btn btn-sm btn-danger" onclick="deleteNota('${nota.id}')">Eliminar</button>
-          <button class="btn btn-sm" onclick="exportarDocx('${nota.id}')" style="background:#059669;color:white">Exportar DOCX</button>
+          <button class="btn btn-sm" onclick="exportarDocx('${nota.id}')" style="background:#059669;color:white">DOCX</button>
+          <button class="btn btn-sm" onclick="exportarPdf('${nota.id}')" style="background:#dc2626;color:white">PDF</button>
         </div>
       </div>
       <h2 style="font-size:1.5rem;margin-bottom:.3rem">${nota.titular}</h2>
