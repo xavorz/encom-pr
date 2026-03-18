@@ -424,7 +424,6 @@ async function renderNotas(el) {
           <option value="">Todos los proyectos</option>
           <option value="OWN Valencia">OWN Valencia</option>
           <option value="Valencia Game City">Valencia Game City</option>
-          <option value="IDASFEST">IDASFEST</option>
           <option value="Encom">Encom</option>
         </select>
       </div>
@@ -479,18 +478,28 @@ function openNotaForm(nota = null) {
   const isEdit = !!nota;
   showModal(`<h3>${isEdit ? 'Editar' : 'Nueva'} nota de prensa</h3>
     <div class="form-group"><label>Proyecto / Evento</label>
-      <select id="nf-proyecto"><option value="OWN Valencia" ${nota?.proyecto==='OWN Valencia'?'selected':''}>OWN Valencia</option><option value="Valencia Game City" ${nota?.proyecto==='Valencia Game City'?'selected':''}>Valencia Game City</option><option value="IDASFEST" ${nota?.proyecto==='IDASFEST'?'selected':''}>IDASFEST</option><option value="Encom" ${nota?.proyecto==='Encom'?'selected':''}>Encom</option><option value="Otro" ${nota?.proyecto==='Otro'?'selected':''}>Otro</option></select>
+      <select id="nf-proyecto"><option value="OWN Valencia" ${nota?.proyecto==='OWN Valencia'?'selected':''}>OWN Valencia</option><option value="Valencia Game City" ${nota?.proyecto==='Valencia Game City'?'selected':''}>Valencia Game City</option><option value="Encom" ${nota?.proyecto==='Encom'?'selected':''}>Encom</option><option value="Otro" ${nota?.proyecto==='Otro'?'selected':''}>Otro</option></select>
     </div>
+    <div class="form-group"><label>Objetivo de la nota</label><textarea id="nf-objetivo" rows="2" placeholder="Ej: Generar cobertura mediática para la venta de entradas, posicionar el evento como referencia...">${esc(nota?.objetivo)}</textarea></div>
+    <div class="form-group"><label>Noticia principal a comunicar</label><textarea id="nf-noticia" rows="2" placeholder="Ej: Se desvela el cartel completo de OWN Valencia 2026 con 150 artistas...">${esc(nota?.noticiaPrincipal)}</textarea></div>
     <div class="grid grid-2">
       <div class="form-group"><label>Datos clave / Cifras</label><textarea id="nf-datos" rows="3" placeholder="150 artistas, 3 días, 35.000 asistentes, 89€ abono...">${esc(nota?.datosClaveRaw)}</textarea></div>
       <div class="form-group"><label>Citas textuales</label><textarea id="nf-citas" rows="3" placeholder='"Queremos que OWN sea una experiencia cultural única" — Javi, CEO'>${esc(nota?.citas)}</textarea></div>
     </div>
+    <div class="form-group"><label>Entidades a nombrar y con qué argumento</label><textarea id="nf-entidades" rows="2" placeholder="Ej: Ayuntamiento de Valencia (colaborador institucional), Coca-Cola (patrocinador principal)...">${esc(nota?.entidades)}</textarea></div>
+    <div class="form-group"><label>Cosas que NO deben aparecer en la nota</label><textarea id="nf-exclusiones" rows="2" placeholder="Ej: No mencionar presupuesto, no nombrar a competencia directa, no dar cifras de beneficio...">${esc(nota?.exclusiones)}</textarea></div>
     <div class="form-group"><label>Contacto de prensa</label><input id="nf-contacto" value="${esc(nota?.contactoPrensa)}" placeholder="Email/teléfono para periodistas"></div>
     <div class="form-group"><label>Material adjunto (links)</label><input id="nf-material" value="${esc(nota?.materialesAdjuntos)}" placeholder="URLs de imágenes/vídeos/press kit"></div>
-    <div class="form-group"><label>Nota de ejemplo / referencia (opcional)</label><textarea id="nf-ejemplo" rows="3" placeholder="Pega aquí una nota similar como referencia...">${esc(nota?.notaEjemplo)}</textarea></div>
+    <div class="grid grid-2">
+      <div class="form-group"><label>Nota de ejemplo / referencia (texto)</label><textarea id="nf-ejemplo" rows="3" placeholder="Pega aquí una nota similar como referencia...">${esc(nota?.notaEjemplo)}</textarea></div>
+      <div class="form-group"><label>O sube un .docx de referencia</label>
+        <input type="file" id="nf-docx" accept=".docx" onchange="cargarDocx(this)" style="margin-top:0.25rem">
+        <div id="docx-status" style="margin-top:0.25rem"></div>
+      </div>
+    </div>
     <div style="margin:1.5rem 0;padding:1rem;background:linear-gradient(135deg,#f0f4ff,#e8f0fe);border-radius:12px;border:1px solid #c5d5f7">
       <div class="flex flex-between flex-center">
-        <div><strong style="color:#1a56db">Generar con IA</strong><br><small style="color:#666">Rellena los datos clave y la IA creará el titular, subtítulo y cuerpo</small></div>
+        <div><strong style="color:#1a56db">Generar con IA</strong><br><small style="color:#666">Rellena los campos de arriba y la IA creará el titular, subtítulo y cuerpo</small></div>
         <button class="btn btn-primary" onclick="generarConIA()" id="btn-ia" style="background:#1a56db;white-space:nowrap">Generar nota</button>
       </div>
       <div id="ia-status" style="display:none;margin-top:0.75rem"></div>
@@ -506,16 +515,50 @@ function openNotaForm(nota = null) {
   `);
 }
 
+// Upload .docx and extract text
+async function cargarDocx(input) {
+  const file = input.files[0];
+  const statusEl = document.getElementById('docx-status');
+  if (!file) return;
+  statusEl.innerHTML = '<small style="color:#1a56db">Subiendo y extrayendo texto...</small>';
+  try {
+    const base64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+    const result = await api('/api/extraer-docx', {
+      method: 'POST',
+      body: JSON.stringify({ base64, filename: file.name })
+    });
+    if (result.error) {
+      statusEl.innerHTML = '<small style="color:#dc2626">Error: ' + esc(result.error) + '</small>';
+      return;
+    }
+    // Append extracted text to the ejemplo field
+    const ejemploEl = document.getElementById('nf-ejemplo');
+    ejemploEl.value = (ejemploEl.value ? ejemploEl.value + '\n\n--- Contenido del docx ---\n\n' : '') + result.text;
+    statusEl.innerHTML = '<small style="color:#059669">Texto extraído y añadido al campo de referencia.</small>';
+  } catch (e) {
+    statusEl.innerHTML = '<small style="color:#dc2626">Error: ' + e.message + '</small>';
+  }
+}
+
 async function generarConIA() {
   const proyecto = document.getElementById('nf-proyecto').value;
+  const objetivo = document.getElementById('nf-objetivo').value;
+  const noticiaPrincipal = document.getElementById('nf-noticia').value;
   const datosClaveRaw = document.getElementById('nf-datos').value;
   const citas = document.getElementById('nf-citas').value;
+  const entidades = document.getElementById('nf-entidades').value;
+  const exclusiones = document.getElementById('nf-exclusiones').value;
   const contactoPrensa = document.getElementById('nf-contacto').value;
   const materialesAdjuntos = document.getElementById('nf-material').value;
   const notaEjemplo = document.getElementById('nf-ejemplo').value;
 
-  if (!datosClaveRaw.trim()) {
-    alert('Rellena al menos los "Datos clave / Cifras" para que la IA pueda generar la nota.');
+  if (!noticiaPrincipal.trim() && !datosClaveRaw.trim()) {
+    alert('Rellena al menos la "Noticia principal" o los "Datos clave" para que la IA pueda generar la nota.');
     return;
   }
 
@@ -529,7 +572,7 @@ async function generarConIA() {
   try {
     const result = await api('/api/notas/generar-ia', {
       method: 'POST',
-      body: JSON.stringify({ proyecto, datosClaveRaw, citas, contactoPrensa, materialesAdjuntos, notaEjemplo })
+      body: JSON.stringify({ proyecto, objetivo, noticiaPrincipal, datosClaveRaw, citas, entidades, exclusiones, contactoPrensa, materialesAdjuntos, notaEjemplo })
     });
 
     if (result.error) {
@@ -557,11 +600,15 @@ async function generarConIA() {
 async function saveNota(id) {
   const body = {
     proyecto: document.getElementById('nf-proyecto').value,
+    objetivo: document.getElementById('nf-objetivo').value,
+    noticiaPrincipal: document.getElementById('nf-noticia').value,
     titular: document.getElementById('nf-titular').value,
     subtitulo: document.getElementById('nf-subtitulo').value,
     cuerpo: document.getElementById('nf-cuerpo').value,
     datosClaveRaw: document.getElementById('nf-datos').value,
     citas: document.getElementById('nf-citas').value,
+    entidades: document.getElementById('nf-entidades').value,
+    exclusiones: document.getElementById('nf-exclusiones').value,
     contactoPrensa: document.getElementById('nf-contacto').value,
     materialesAdjuntos: document.getElementById('nf-material').value,
     notaEjemplo: document.getElementById('nf-ejemplo').value,
@@ -849,7 +896,7 @@ function openPlantillaForm() {
   showModal(`<h3>Nueva plantilla</h3>
     <div class="form-group"><label>Nombre</label><input id="pf-nombre" placeholder="Ej: Anuncio de festival"></div>
     <div class="form-group"><label>Tipo de evento</label>
-      <select id="pf-tipo"><option>OWN Valencia</option><option>Valencia Game City</option><option>IDASFEST</option><option>Encom</option><option>General</option></select>
+      <select id="pf-tipo"><option>OWN Valencia</option><option>Valencia Game City</option><option>Encom</option><option>General</option></select>
     </div>
     <div class="form-group"><label>Titular (plantilla)</label><input id="pf-titular" placeholder="[NOMBRE] [AÑO]: [gancho]"></div>
     <div class="form-group"><label>Subtítulo (plantilla)</label><input id="pf-subtitulo"></div>
@@ -1015,7 +1062,7 @@ async function renderSettings(el) {
     <div class="card">
       <div class="card-header"><h3>Información del sistema</h3></div>
       <p class="text-sm">EncomPR v1.0 — Sistema de Gestión de Notas de Prensa</p>
-      <p class="text-sm text-muted">Encom: OWN Valencia · Valencia Game City · IDASFEST</p>
+      <p class="text-sm text-muted">Encom: OWN Valencia · Valencia Game City</p>
     </div>
   </div>`;
 }

@@ -1,7 +1,7 @@
 /**
  * EncomPR — Sistema de Gestión de Notas de Prensa
  * Servidor HTTP puro con Node.js (sin dependencias externas)
- * Encom: OWN Valencia · Valencia Game City · IDASFEST
+ * Encom: OWN Valencia · Valencia Game City
  */
 
 const http = require('http');
@@ -229,11 +229,15 @@ route('POST', '/api/notas', async (req, res) => {
   const nota = {
     id: uuid(),
     proyecto: body.proyecto || 'Encom',
+    objetivo: body.objetivo || '',
+    noticiaPrincipal: body.noticiaPrincipal || '',
     titular: body.titular || '',
     subtitulo: body.subtitulo || '',
     cuerpo: body.cuerpo || '',
     datosClaveRaw: body.datosClaveRaw || '',
     citas: body.citas || '',
+    entidades: body.entidades || '',
+    exclusiones: body.exclusiones || '',
     contactoPrensa: body.contactoPrensa || '',
     materialesAdjuntos: body.materialesAdjuntos || '',
     notaEjemplo: body.notaEjemplo || '',
@@ -260,7 +264,7 @@ route('PUT', '/api/notas/:id', async (req, res, params) => {
   const notas = readJSON('notas.json');
   const idx = notas.findIndex(n => n.id === params.id);
   if (idx === -1) return error(res, 'Nota no encontrada', 404);
-  const allowed = ['proyecto', 'titular', 'subtitulo', 'cuerpo', 'datosClaveRaw', 'citas', 'contactoPrensa', 'materialesAdjuntos', 'notaEjemplo', 'plantilla', 'estado'];
+  const allowed = ['proyecto', 'objetivo', 'noticiaPrincipal', 'titular', 'subtitulo', 'cuerpo', 'datosClaveRaw', 'citas', 'entidades', 'exclusiones', 'contactoPrensa', 'materialesAdjuntos', 'notaEjemplo', 'plantilla', 'estado'];
   for (const key of allowed) {
     if (body[key] !== undefined) notas[idx][key] = body[key];
   }
@@ -625,6 +629,51 @@ route('DELETE', '/api/plantillas/:id', async (req, res, params) => {
   json(res, { ok: true });
 });
 
+// ── EXTRACCIÓN DOCX ──
+route('POST', '/api/extraer-docx', async (req, res) => {
+  const user = requireAuth(req, res);
+  if (!user) return;
+  const body = await parseBody(req);
+  if (!body.base64) return error(res, 'No se recibió el archivo');
+  try {
+    const zlib = require('zlib');
+    const buf = Buffer.from(body.base64, 'base64');
+    // .docx is a zip file. We look for word/document.xml inside it.
+    // Minimal zip parser: find local file headers and extract document.xml
+    let text = '';
+    let offset = 0;
+    while (offset < buf.length - 4) {
+      // Local file header signature: 0x04034b50
+      if (buf.readUInt32LE(offset) !== 0x04034b50) break;
+      const compMethod = buf.readUInt16LE(offset + 8);
+      const compSize = buf.readUInt32LE(offset + 18);
+      const uncompSize = buf.readUInt32LE(offset + 22);
+      const nameLen = buf.readUInt16LE(offset + 26);
+      const extraLen = buf.readUInt16LE(offset + 28);
+      const fileName = buf.toString('utf8', offset + 30, offset + 30 + nameLen);
+      const dataStart = offset + 30 + nameLen + extraLen;
+      const rawData = buf.slice(dataStart, dataStart + compSize);
+      if (fileName === 'word/document.xml') {
+        let xmlBuf;
+        if (compMethod === 8) { // deflate
+          xmlBuf = zlib.inflateRawSync(rawData);
+        } else {
+          xmlBuf = rawData;
+        }
+        const xml = xmlBuf.toString('utf8');
+        // Extract text from <w:t> tags
+        text = xml.replace(/<w:p[^>]*>/g, '\n').replace(/<[^>]+>/g, '').replace(/\n{3,}/g, '\n\n').trim();
+        break;
+      }
+      offset = dataStart + compSize;
+    }
+    if (!text) return error(res, 'No se pudo extraer texto del docx. Asegúrate de que es un archivo .docx válido.');
+    json(res, { text, chars: text.length });
+  } catch (e) {
+    error(res, 'Error al procesar el docx: ' + e.message, 500);
+  }
+});
+
 // ── GENERACIÓN IA ──
 route('POST', '/api/notas/generar-ia', async (req, res) => {
   const user = requireAuth(req, res);
@@ -632,11 +681,11 @@ route('POST', '/api/notas/generar-ia', async (req, res) => {
   if (!ANTHROPIC_API_KEY) return error(res, 'API de IA no configurada. Añade ANTHROPIC_API_KEY en las variables de entorno.', 500);
 
   const body = await parseBody(req);
-  const { proyecto, datosClaveRaw, citas, contactoPrensa, materialesAdjuntos, notaEjemplo } = body;
+  const { proyecto, objetivo, noticiaPrincipal, datosClaveRaw, citas, entidades, exclusiones, contactoPrensa, materialesAdjuntos, notaEjemplo } = body;
 
-  if (!datosClaveRaw && !proyecto) return error(res, 'Necesito al menos el proyecto y algunos datos clave para generar la nota');
+  if (!noticiaPrincipal && !datosClaveRaw) return error(res, 'Necesito al menos la noticia principal o datos clave para generar la nota');
 
-  const systemPrompt = `Eres el jefe de comunicación de Encom, una empresa líder en gestión de eventos en España. Tus eventos principales son OWN Valencia (festival de música), Valencia Game City (evento gaming) e IDASFEST (festival urbano).
+  const systemPrompt = `Eres el jefe de comunicación de Encom, una empresa líder en gestión de eventos en España. Tus eventos principales son OWN Valencia (festival de música) y Valencia Game City (evento gaming).
 
 Tu trabajo es redactar notas de prensa profesionales, perfectas para enviar a medios de comunicación españoles.
 
@@ -645,23 +694,29 @@ Reglas de estilo:
 - Titular: impactante, con dato concreto, máximo 120 caracteres
 - Subtítulo: amplía el titular con contexto, máximo 200 caracteres
 - Cuerpo: 4-5 párrafos bien estructurados
-  - Párrafo 1: Qué, cuándo, dónde (lo esencial)
+  - Párrafo 1: Qué, cuándo, dónde (lo esencial, la noticia)
   - Párrafo 2: Detalles del programa/contenido
-  - Párrafo 3: Novedades de esta edición
-  - Párrafo 4: Cita del CEO o responsable (usa las citas proporcionadas, o inventa una verosímil de Javi, CEO de Encom)
+  - Párrafo 3: Novedades o ángulo diferenciador
+  - Párrafo 4: Cita del CEO o responsable (usa las citas proporcionadas, o genera una verosímil de Javi, CEO de Encom)
   - Párrafo 5: Datos prácticos (entradas, precios, acceso)
 - Incluye los datos numéricos/cifras proporcionados de forma natural en el texto
+- Nombra las entidades indicadas con el argumento especificado
+- RESPETA ESTRICTAMENTE las exclusiones: lo que el usuario dice que NO debe aparecer, NO aparece
 - NO uses formato markdown, solo texto plano con saltos de línea
 - Escribe SIEMPRE en castellano`;
 
   const userPrompt = `Genera una nota de prensa profesional con estos datos:
 
 PROYECTO/EVENTO: ${proyecto || 'Encom'}
+OBJETIVO DE LA NOTA: ${objetivo || 'Generar cobertura mediática'}
+NOTICIA PRINCIPAL: ${noticiaPrincipal || 'No especificada'}
 DATOS CLAVE Y CIFRAS: ${datosClaveRaw || 'No proporcionados'}
 CITAS TEXTUALES: ${citas || 'No proporcionadas, genera una verosímil del CEO'}
+ENTIDADES A NOMBRAR: ${entidades || 'No especificadas'}
+COSAS QUE NO DEBEN APARECER: ${exclusiones || 'Ninguna restricción especial'}
 CONTACTO DE PRENSA: ${contactoPrensa || 'Departamento de Comunicación Encom — prensa@encom.es — 960 000 000'}
 MATERIALES: ${materialesAdjuntos || 'No proporcionados'}
-${notaEjemplo ? `NOTA DE REFERENCIA (usa como guía de estilo): ${notaEjemplo}` : ''}
+${notaEjemplo ? `\nNOTA DE REFERENCIA (imita el estilo y estructura de esta nota):\n${notaEjemplo}` : ''}
 
 Responde EXCLUSIVAMENTE con un JSON válido (sin markdown, sin backticks) con esta estructura:
 {"titular": "...", "subtitulo": "...", "cuerpo": "..."}
