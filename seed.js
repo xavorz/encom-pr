@@ -31,6 +31,8 @@ const users = [
   { id: editor1Id, name: 'Laura Martínez', email: 'laura@encom.es', passwordHash: hash('editor2024'), role: 'editor', createdAt: daysAgo(200) },
   { id: editor2Id, name: 'Carlos Ruiz', email: 'carlos@encom.es', passwordHash: hash('editor2024'), role: 'editor', createdAt: daysAgo(180) },
   { id: editor3Id, name: 'Ana Beltrán', email: 'ana@encom.es', passwordHash: hash('editor2024'), role: 'editor', createdAt: daysAgo(150) },
+  { id: uuid(), name: 'Maria Tinoco', email: 'maria.tinoco@valenciagamecity.com', passwordHash: hash('123456'), role: 'editor', createdAt: daysAgo(10) },
+  { id: uuid(), name: 'Jon Fermin', email: 'jonfermin@encom.es', passwordHash: hash('123456'), role: 'editor', createdAt: daysAgo(10) },
 ];
 writeJSON('users.json', users);
 console.log(`✓ ${users.length} usuarios creados`);
