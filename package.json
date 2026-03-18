@@ -8,5 +8,8 @@
     "seed": "node seed.js"
   },
   "author": "Encom",
-  "license": "PROPRIETARY"
+  "license": "PROPRIETARY",
+  "dependencies": {
+    "docx": "^9.1.1"
+  }
 }

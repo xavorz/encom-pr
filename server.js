@@ -87,8 +87,10 @@ function error(res, msg, status = 400) {
 
 function getAuth(req) {
   const h = req.headers.authorization;
-  if (!h) return null;
-  const token = h.replace('Bearer ', '');
+  // Also accept token via query param for download links
+  const urlToken = new URL(req.url, `http://${req.headers.host || 'localhost'}`).searchParams.get('_token');
+  const token = h ? h.replace('Bearer ', '') : urlToken;
+  if (!token) return null;
   const sessions = readJSON('sessions.json');
   const s = sessions.find(s => s.token === token);
   if (!s) return null;
@@ -693,12 +695,16 @@ Reglas de estilo:
 - Tono profesional pero cercano, típico de comunicación corporativa española
 - Titular: impactante, con dato concreto, máximo 120 caracteres
 - Subtítulo: amplía el titular con contexto, máximo 200 caracteres
-- Cuerpo: 4-5 párrafos bien estructurados
-  - Párrafo 1: Qué, cuándo, dónde (lo esencial, la noticia)
-  - Párrafo 2: Detalles del programa/contenido
-  - Párrafo 3: Novedades o ángulo diferenciador
-  - Párrafo 4: Cita del CEO o responsable (usa las citas proporcionadas, o genera una verosímil de Javi, CEO de Encom)
-  - Párrafo 5: Datos prácticos (entradas, precios, acceso)
+- Cuerpo: 6-8 párrafos bien desarrollados, extensos y con profundidad periodística
+  - Párrafo 1: Lead informativo — Qué, cuándo, dónde, quién (lo esencial de la noticia, directo y claro)
+  - Párrafo 2: Desarrollo de la noticia principal con más contexto y detalles
+  - Párrafo 3: Detalles del programa, contenido o propuesta de valor
+  - Párrafo 4: Novedades, datos diferenciadores, comparativa con ediciones anteriores si aplica
+  - Párrafo 5: Cita del CEO o responsable (usa las citas proporcionadas, o genera una verosímil de Javi, CEO de Encom)
+  - Párrafo 6: Contexto sectorial — posicionar el evento/noticia dentro del sector
+  - Párrafo 7: Datos prácticos (entradas, precios, acceso, fechas, web)
+  - Párrafo final: Sobre Encom — breve descripción corporativa (1-2 frases)
+- Cada párrafo debe tener al menos 3-4 frases. No seas escueto, desarrolla las ideas
 - Incluye los datos numéricos/cifras proporcionados de forma natural en el texto
 - Nombra las entidades indicadas con el argumento especificado
 - RESPETA ESTRICTAMENTE las exclusiones: lo que el usuario dice que NO debe aparecer, NO aparece
@@ -727,7 +733,7 @@ El cuerpo debe usar \\n\\n para separar párrafos. No incluyas nada más fuera d
     const https = require('https');
     const postData = JSON.stringify({
       model: 'claude-sonnet-4-20250514',
-      max_tokens: 2000,
+      max_tokens: 4000,
       messages: [
         { role: 'user', content: userPrompt }
       ],
@@ -785,6 +791,213 @@ El cuerpo debe usar \\n\\n para separar párrafos. No incluyas nada más fuera d
     apiReq.end();
   } catch (e) {
     error(res, 'Error interno IA: ' + e.message, 500);
+  }
+});
+
+// ── REGENERAR CON FEEDBACK ──
+route('POST', '/api/notas/regenerar-ia', async (req, res) => {
+  const user = requireAuth(req, res);
+  if (!user) return;
+  if (!ANTHROPIC_API_KEY) return error(res, 'API de IA no configurada', 500);
+
+  const body = await parseBody(req);
+  const { titularActual, subtituloActual, cuerpoActual, feedback, proyecto } = body;
+
+  if (!feedback) return error(res, 'Escribe qué quieres mejorar');
+
+  const systemPrompt = `Eres el jefe de comunicación de Encom (eventos: OWN Valencia, Valencia Game City). Redactas notas de prensa profesionales para medios españoles.
+Reglas: tono profesional pero cercano, texto plano sin markdown, siempre en castellano.`;
+
+  const userPrompt = `Tengo esta nota de prensa ya generada:
+
+TITULAR: ${titularActual || ''}
+SUBTÍTULO: ${subtituloActual || ''}
+CUERPO:
+${cuerpoActual || ''}
+
+El usuario quiere estos cambios:
+"${feedback}"
+
+Reescribe la nota aplicando exactamente ese feedback. Mantén lo que estaba bien y mejora lo que se pide.
+
+Responde EXCLUSIVAMENTE con un JSON válido (sin markdown, sin backticks):
+{"titular": "...", "subtitulo": "...", "cuerpo": "..."}
+
+El cuerpo usa \\n\\n para separar párrafos. Nada más fuera del JSON.`;
+
+  try {
+    const https = require('https');
+    const postData = JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 2000,
+      messages: [{ role: 'user', content: userPrompt }],
+      system: systemPrompt,
+    });
+    const options = {
+      hostname: 'api.anthropic.com', path: '/v1/messages', method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'Content-Length': Buffer.byteLength(postData) }
+    };
+    const apiReq = https.request(options, (apiRes) => {
+      let data = '';
+      apiRes.on('data', d => data += d);
+      apiRes.on('end', () => {
+        try {
+          const result = JSON.parse(data);
+          if (result.error) return error(res, `Error de IA: ${result.error.message}`, 500);
+          const text = result.content?.[0]?.text || '';
+          try {
+            const nota = JSON.parse(text);
+            json(res, { titular: nota.titular || '', subtitulo: nota.subtitulo || '', cuerpo: nota.cuerpo || '' });
+          } catch {
+            json(res, { titular: '', subtitulo: '', cuerpo: text, _raw: true });
+          }
+        } catch (e) { error(res, 'Error procesando respuesta: ' + e.message, 500); }
+      });
+    });
+    apiReq.on('error', e => error(res, 'Error conectando con IA: ' + e.message, 500));
+    apiReq.write(postData);
+    apiReq.end();
+  } catch (e) { error(res, 'Error interno IA: ' + e.message, 500); }
+});
+
+// ── EXPORTAR NOTA COMO DOCX ──
+route('GET', '/api/notas/:id/exportar-docx', async (req, res, params) => {
+  const user = requireAuth(req, res);
+  if (!user) return;
+  const notas = readJSON('notas.json');
+  const nota = notas.find(n => n.id === params.id);
+  if (!nota) return error(res, 'Nota no encontrada', 404);
+
+  try {
+    const docxLib = require('docx');
+    const { Document, Packer, Paragraph, TextRun, AlignmentType, BorderStyle, Table, TableRow, TableCell, WidthType, ShadingType } = docxLib;
+
+    // Parse body paragraphs
+    const bodyParagraphs = (nota.cuerpo || '').split(/\n\n+/).filter(p => p.trim());
+
+    const children = [];
+
+    // Header: "NOTA DE PRENSA" label
+    children.push(new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 100 },
+      children: [new TextRun({ text: 'NOTA DE PRENSA', font: 'Arial', size: 20, color: '888888', bold: true, allCaps: true })]
+    }));
+
+    // Project chip
+    if (nota.proyecto) {
+      children.push(new Paragraph({
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 300 },
+        children: [new TextRun({ text: nota.proyecto.toUpperCase(), font: 'Arial', size: 18, color: '1a56db' })]
+      }));
+    }
+
+    // Titular
+    children.push(new Paragraph({
+      alignment: AlignmentType.LEFT,
+      spacing: { after: 200 },
+      children: [new TextRun({ text: nota.titular || 'Sin titular', font: 'Arial', size: 36, bold: true, color: '1a1a1a' })]
+    }));
+
+    // Subtitulo
+    if (nota.subtitulo) {
+      children.push(new Paragraph({
+        alignment: AlignmentType.LEFT,
+        spacing: { after: 300 },
+        children: [new TextRun({ text: nota.subtitulo, font: 'Arial', size: 26, color: '444444', italics: true })]
+      }));
+    }
+
+    // Separator line
+    children.push(new Paragraph({
+      spacing: { after: 300 },
+      border: { bottom: { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' } },
+      children: []
+    }));
+
+    // Date
+    children.push(new Paragraph({
+      spacing: { after: 300 },
+      children: [new TextRun({ text: `Valencia, ${new Date(nota.updatedAt || nota.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}`, font: 'Arial', size: 22, color: '666666', italics: true })]
+    }));
+
+    // Body paragraphs
+    for (const para of bodyParagraphs) {
+      children.push(new Paragraph({
+        spacing: { after: 200, line: 340 },
+        children: [new TextRun({ text: para.trim(), font: 'Arial', size: 24, color: '333333' })]
+      }));
+    }
+
+    // Datos clave box
+    if (nota.datosClaveRaw) {
+      children.push(new Paragraph({ spacing: { before: 300, after: 100 }, children: [] }));
+      const border = { style: BorderStyle.SINGLE, size: 1, color: '1a56db' };
+      children.push(new Table({
+        width: { size: 9026, type: WidthType.DXA },
+        rows: [new TableRow({
+          children: [new TableCell({
+            borders: { top: border, bottom: border, left: border, right: border },
+            shading: { fill: 'EEF2FF', type: ShadingType.CLEAR },
+            margins: { top: 120, bottom: 120, left: 200, right: 200 },
+            width: { size: 9026, type: WidthType.DXA },
+            children: [
+              new Paragraph({ children: [new TextRun({ text: 'DATOS CLAVE', font: 'Arial', size: 20, bold: true, color: '1a56db' })] }),
+              new Paragraph({ spacing: { before: 80 }, children: [new TextRun({ text: nota.datosClaveRaw, font: 'Arial', size: 22, color: '333333' })] })
+            ]
+          })]
+        })]
+      }));
+    }
+
+    // Contact footer
+    children.push(new Paragraph({ spacing: { before: 400 }, border: { bottom: { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' } }, children: [] }));
+    children.push(new Paragraph({
+      spacing: { before: 200, after: 100 },
+      children: [new TextRun({ text: 'CONTACTO DE PRENSA', font: 'Arial', size: 18, bold: true, color: '888888' })]
+    }));
+    children.push(new Paragraph({
+      children: [new TextRun({ text: nota.contactoPrensa || 'Departamento de Comunicaci\u00f3n Encom \u2014 prensa@encom.es', font: 'Arial', size: 22, color: '333333' })]
+    }));
+
+    // Materials
+    if (nota.materialesAdjuntos) {
+      children.push(new Paragraph({
+        spacing: { before: 200 },
+        children: [
+          new TextRun({ text: 'Materiales: ', font: 'Arial', size: 20, bold: true, color: '888888' }),
+          new TextRun({ text: nota.materialesAdjuntos, font: 'Arial', size: 20, color: '1a56db' })
+        ]
+      }));
+    }
+
+    const doc = new Document({
+      styles: {
+        default: { document: { run: { font: 'Arial', size: 24 } } }
+      },
+      sections: [{
+        properties: {
+          page: {
+            size: { width: 11906, height: 16838 },
+            margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 }
+          }
+        },
+        children
+      }]
+    });
+
+    const buffer = await Packer.toBuffer(doc);
+    const filename = `nota_${(nota.proyecto || 'encom').replace(/\s+/g, '_').toLowerCase()}_${Date.now()}.docx`;
+    cors(res);
+    res.writeHead(200, {
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Content-Length': buffer.length
+    });
+    res.end(buffer);
+  } catch (e) {
+    error(res, 'Error generando docx: ' + e.message, 500);
   }
 });
 
