@@ -1,0 +1,4 @@
+node_modules/
+data/*.json
+mailchimp.config.json
+.DS_Store
