@@ -1,0 +1,44 @@
+version: "3.8"
+
+services:
+  encompr:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: encompr
+    restart: unless-stopped
+    ports:
+      - "${ENCOMPR_PORT:-3000}:3000"
+    environment:
+      - PORT=3000
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+    volumes:
+      - encompr-data:/app/data
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  encomventas:
+    build:
+      context: ./EncomVentas
+      dockerfile: Dockerfile
+    container_name: encomventas
+    restart: unless-stopped
+    ports:
+      - "${ENCOMVENTAS_PORT:-3001}:3000"
+    environment:
+      - PORT=3000
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+    volumes:
+      - encomventas-data:/app/data
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  encompr-data:
+  encomventas-data:
