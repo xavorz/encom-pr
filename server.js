@@ -16,6 +16,32 @@ const DATA_DIR = path.join(__dirname, 'data');
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
 const PORTAL_URL = process.env.PORTAL_URL || 'https://tools.encom.es';
+const httpsModule = require('https');
+
+function ssoValidate(token) {
+  return new Promise((resolve, reject) => {
+    const urlObj = new URL(`${PORTAL_URL}/api/auth/sso/validate?token=${token}`);
+    const options = {
+      hostname: urlObj.hostname,
+      port: urlObj.port || 443,
+      path: urlObj.pathname + urlObj.search,
+      method: 'GET',
+      rejectUnauthorized: false,
+      headers: { 'Accept': 'application/json' },
+    };
+    const r = httpsModule.request(options, (response) => {
+      let data = '';
+      response.on('data', chunk => data += chunk);
+      response.on('end', () => {
+        try { resolve(JSON.parse(data)); }
+        catch (e) { reject(new Error(`SSO parse error: ${data.substring(0, 200)}`)); }
+      });
+    });
+    r.on('error', reject);
+    r.setTimeout(10000, () => { r.destroy(); reject(new Error('SSO timeout')); });
+    r.end();
+  });
+}
 
 // Ensure data dir exists
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -1252,8 +1278,9 @@ const server = http.createServer(async (req, res) => {
       const ssoToken = parsedUrl.searchParams.get('token');
       if (!ssoToken) { res.writeHead(302, { Location: '/' }); return res.end(); }
       try {
-        const ssoRes = await fetch(`${PORTAL_URL}/api/auth/sso/validate?token=${ssoToken}`);
-        const ssoResult = await ssoRes.json();
+        console.log('[SSO] Validating token against portal:', PORTAL_URL);
+        const ssoResult = await ssoValidate(ssoToken);
+        console.log('[SSO] Validation result:', JSON.stringify(ssoResult));
         if (!ssoResult.valid) { res.writeHead(302, { Location: '/' }); return res.end(); }
 
         // Find or create user
