@@ -1274,7 +1274,7 @@ const server = http.createServer(async (req, res) => {
     const urlPath = parsedUrl.pathname;
 
     // ── SSO from Encom Tools Portal ──
-    if (urlPath === '/sso' && req.method === 'GET') {
+    if (urlPath === '/api/sso' && req.method === 'GET') {
       const ssoToken = parsedUrl.searchParams.get('token');
       if (!ssoToken) { res.writeHead(302, { Location: '/' }); return res.end(); }
       try {
