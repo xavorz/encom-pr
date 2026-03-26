@@ -1300,7 +1300,7 @@ const server = http.createServer(async (req, res) => {
 
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         return res.end(`<!DOCTYPE html><html><head><script>
-          localStorage.setItem('token', '${sessionToken}');
+          localStorage.setItem('encompr_token', '${sessionToken}');
           localStorage.setItem('user', JSON.stringify(${JSON.stringify({ id: user.id, email: user.email, name: user.name, role: user.role })}));
           window.location.href = '/';
         </script></head><body></body></html>`);
