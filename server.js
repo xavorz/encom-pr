@@ -15,6 +15,7 @@ const PORT = process.env.PORT || 3000;
 const DATA_DIR = path.join(__dirname, 'data');
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
+const PORTAL_URL = process.env.PORTAL_URL || 'https://tools.encom.es';
 
 // Ensure data dir exists
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -1246,6 +1247,43 @@ const server = http.createServer(async (req, res) => {
     const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
     const urlPath = parsedUrl.pathname;
 
+    // ── SSO from Encom Tools Portal ──
+    if (urlPath === '/sso' && req.method === 'GET') {
+      const ssoToken = parsedUrl.searchParams.get('token');
+      if (!ssoToken) { res.writeHead(302, { Location: '/' }); return res.end(); }
+      try {
+        const ssoRes = await fetch(`${PORTAL_URL}/api/auth/sso/validate?token=${ssoToken}`);
+        const ssoResult = await ssoRes.json();
+        if (!ssoResult.valid) { res.writeHead(302, { Location: '/' }); return res.end(); }
+
+        // Find or create user
+        const users = readJSON('users.json');
+        let user = users.find(u => u.email === ssoResult.user.email);
+        if (!user) {
+          user = { id: uuid(), email: ssoResult.user.email, name: ssoResult.user.name, password: hashPassword(crypto.randomBytes(32).toString('hex')), role: 'admin', createdAt: now() };
+          users.push(user);
+          writeJSON('users.json', users);
+        }
+
+        // Create session
+        const sessions = readJSON('sessions.json');
+        const sessionToken = generateToken();
+        sessions.push({ token: sessionToken, userId: user.id, createdAt: now() });
+        writeJSON('sessions.json', sessions);
+
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        return res.end(`<!DOCTYPE html><html><head><script>
+          localStorage.setItem('token', '${sessionToken}');
+          localStorage.setItem('user', JSON.stringify(${JSON.stringify({ id: user.id, email: user.email, name: user.name, role: user.role })}));
+          window.location.href = '/';
+        </script></head><body></body></html>`);
+      } catch (err) {
+        console.error('SSO validation error:', err);
+        res.writeHead(302, { Location: '/' });
+        return res.end();
+      }
+    }
+
     // API Routes
     for (const r of routes) {
       const params = matchRoute(req.method, urlPath, r.method, r.pattern);
@@ -1295,3 +1333,4 @@ server.listen(PORT, () => {
   console.log(`  ║  Servidor activo en http://localhost:${PORT} ║`);
   console.log(`  ╚══════════════════════════════════════════╝\n`);
 });
+                                                                                                                                                                                                                                                                                                                                                                                                  
