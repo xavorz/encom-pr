@@ -16,6 +16,7 @@ const DATA_DIR = path.join(__dirname, 'data');
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
 const PORTAL_URL = process.env.PORTAL_URL || 'https://tools.encom.es';
+const SSO_AUTO_CREATE = (process.env.SSO_AUTO_CREATE || 'true') === 'true';
 const httpsModule = require('https');
 
 function ssoValidate(token) {
@@ -1303,6 +1304,11 @@ const server = http.createServer(async (req, res) => {
         const users = readJSON('users.json');
         let user = users.find(u => u.email === ssoResult.user.email);
         if (!user) {
+          if (!SSO_AUTO_CREATE) {
+            console.log('[SSO] User not found and auto-create disabled:', ssoResult.user.email);
+            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+            return res.end(ssoErrorPage('No tienes cuenta en esta herramienta. Contacta con un administrador.'));
+          }
           user = { id: uuid(), email: ssoResult.user.email, name: ssoResult.user.name, password: hashPassword(crypto.randomBytes(32).toString('hex')), role: ssoResult.user.role || 'user', createdAt: now() };
           users.push(user);
           writeJSON('users.json', users);
