@@ -43,6 +43,16 @@ function ssoValidate(token) {
   });
 }
 
+const SSO_STYLE = `*{margin:0;padding:0;box-sizing:border-box}body{background:#0f1117;display:flex;align-items:center;justify-content:center;height:100vh;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}.c{text-align:center}.logo{width:48px;height:48px;background:#FFB800;border-radius:12px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:24px;color:#0f1117;margin:0 auto 16px}.t{color:#fff;font-size:15px;margin-bottom:8px}.s{color:rgba(255,255,255,.4);font-size:13px}.e{color:#ef4444;font-size:14px;margin-top:12px}.bar{width:120px;height:3px;background:rgba(255,255,255,.1);border-radius:3px;margin:20px auto 0;overflow:hidden}.bar::after{content:'';display:block;width:40%;height:100%;background:#FFB800;border-radius:3px;animation:slide 1s ease-in-out infinite}@keyframes slide{0%{transform:translateX(-100%)}100%{transform:translateX(350%)}}a{color:#FFB800;text-decoration:none;font-size:13px;margin-top:16px;display:inline-block}`;
+
+function ssoErrorPage(message) {
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>${SSO_STYLE}</style></head><body><div class="c"><div class="logo">E</div><div class="t">Error de acceso</div><div class="e">${message}</div><a href="https://tools.encom.es">Volver al portal</a></div></body></html>`;
+}
+
+function ssoLoadingPage(tokenKey, tokenValue, userKey, userValue) {
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>${SSO_STYLE}</style></head><body><div class="c"><div class="logo">E</div><div class="t">Conectando...</div><div class="s">Encom Tools</div><div class="bar"></div></div><script type="text/javascript">try{localStorage.setItem("${tokenKey}","${tokenValue}");localStorage.setItem("${userKey}",'${userValue.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}');window.location.replace("/")}catch(e){document.querySelector(".t").textContent="Error";document.querySelector(".s").textContent=e.message}</script></body></html>`;
+}
+
 // Ensure data dir exists
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
@@ -1276,18 +1286,24 @@ const server = http.createServer(async (req, res) => {
     // ── SSO from Encom Tools Portal ──
     if (urlPath === '/api/sso' && req.method === 'GET') {
       const ssoToken = parsedUrl.searchParams.get('token');
-      if (!ssoToken) { res.writeHead(302, { Location: '/' }); return res.end(); }
+      if (!ssoToken) {
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        return res.end(ssoErrorPage('Token no proporcionado'));
+      }
       try {
         console.log('[SSO] Validating token against portal:', PORTAL_URL);
         const ssoResult = await ssoValidate(ssoToken);
         console.log('[SSO] Validation result:', JSON.stringify(ssoResult));
-        if (!ssoResult.valid) { res.writeHead(302, { Location: '/' }); return res.end(); }
+        if (!ssoResult.valid) {
+          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+          return res.end(ssoErrorPage('Token inválido o expirado. Vuelve al portal e inténtalo de nuevo.'));
+        }
 
         // Find or create user
         const users = readJSON('users.json');
         let user = users.find(u => u.email === ssoResult.user.email);
         if (!user) {
-          user = { id: uuid(), email: ssoResult.user.email, name: ssoResult.user.name, password: hashPassword(crypto.randomBytes(32).toString('hex')), role: 'admin', createdAt: now() };
+          user = { id: uuid(), email: ssoResult.user.email, name: ssoResult.user.name, password: hashPassword(crypto.randomBytes(32).toString('hex')), role: ssoResult.user.role || 'user', createdAt: now() };
           users.push(user);
           writeJSON('users.json', users);
         }
@@ -1298,16 +1314,13 @@ const server = http.createServer(async (req, res) => {
         sessions.push({ token: sessionToken, userId: user.id, createdAt: now() });
         writeJSON('sessions.json', sessions);
 
+        const userData = JSON.stringify({ id: user.id, email: user.email, name: user.name, role: user.role });
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        return res.end(`<!DOCTYPE html><html><head><script>
-          localStorage.setItem('encompr_token', '${sessionToken}');
-          localStorage.setItem('user', JSON.stringify(${JSON.stringify({ id: user.id, email: user.email, name: user.name, role: user.role })}));
-          window.location.href = '/';
-        </script></head><body></body></html>`);
+        return res.end(ssoLoadingPage('encompr_token', sessionToken, 'user', userData));
       } catch (err) {
-        console.error('SSO validation error:', err);
-        res.writeHead(302, { Location: '/' });
-        return res.end();
+        console.error('[SSO] Error:', err.message);
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        return res.end(ssoErrorPage('No se pudo conectar con el portal. Inténtalo de nuevo.'));
       }
     }
 
